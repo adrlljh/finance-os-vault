@@ -169,7 +169,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ height:"100vh", overflow:"hidden", background:"#f8f7f4", fontFamily:"'DM Sans', sans-serif", color:"#1a1a1a" }}>
+    <div style={{ background:"#f8f7f4", fontFamily:"'DM Sans', sans-serif", color:"#1a1a1a" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
         * { box-sizing: border-box; margin:0; padding:0; }
@@ -205,7 +205,7 @@ export default function App() {
         .toggle-opt { padding:7px 18px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; border:none; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
         .toggle-opt.active { background:#fff; color:#1a1a1a; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
         .toggle-opt:not(.active) { background:transparent; color:#888; }
-        .step-mobile { display:none; } @media (max-width: 767px) { .card { padding:16px; border-radius:12px; } .page-title { font-size:22px; } .stat-val { font-size:20px; } .stat-grid { grid-template-columns: repeat(2,1fr) !important; } .stat-grid > *:last-child:nth-child(odd) { grid-column: span 2; } .chart-grid { grid-template-columns: 1fr !important; } .goal-grid { grid-template-columns: repeat(2,1fr) !important; } .step-desktop { display:none !important; } .step-mobile { display:block !important; } }
+        .step-mobile { display:none; } @media (max-width: 767px) { .card { padding:16px; border-radius:12px; } .page-title { font-size:22px; } .stat-val { font-size:20px; } .stat-grid { grid-template-columns: repeat(2,1fr) !important; } .stat-grid > *:last-child:nth-child(odd) { grid-column: span 2; } .chart-grid { grid-template-columns: 1fr !important; } .goal-grid { grid-template-columns: repeat(2,1fr) !important; } .step-desktop { display:none !important; } .step-mobile { display:block !important; } .home-goal-grid { grid-template-columns: 1fr !important; } .mobile-single-col { grid-template-columns: 1fr !important; } }
       `}</style>
 
       <MaskProvider isMasked={isMasked}>
@@ -263,7 +263,7 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
 
   if (isMobile) {
     return (
-      <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh" }}>
+      <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", overflowX:"hidden" }}>
         {/* Mobile top bar */}
         <div style={{ background:"#fff", borderBottom:"1px solid #ede9e0", padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 }}>
           <div>
@@ -277,7 +277,7 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
           </div>
         </div>
         {/* Page content */}
-        <main style={{ flex:1, padding:"20px 16px 90px", overflowY:"auto" }}>
+        <main style={{ flex:1, padding:"20px 16px 90px" }}>
           {children}
         </main>
         {/* Mobile bottom nav */}
@@ -297,7 +297,7 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
   // Desktop: collapsible sidebar
   const sidebarWidth = collapsed ? 64 : 220;
   return (
-    <div style={{ display:"flex", height:"100vh", overflow:"hidden" }}>
+    <div style={{ display:"flex", height:"100vh", overflow:"hidden", position:"fixed", top:0, left:0, right:0, bottom:0 }}>
       <aside style={{ width:sidebarWidth, background:"#fff", borderRight:"1px solid #ede9e0", display:"flex", flexDirection:"column", gap:4, flexShrink:0, transition:"width 0.2s ease", overflow:"hidden", padding: collapsed?"16px 8px":"28px 16px", height:"100vh" }}>
         {/* Logo row */}
         <div style={{ display:"flex", alignItems:"center", justifyContent: collapsed?"center":"space-between", marginBottom:24, paddingLeft: collapsed?0:6 }}>
@@ -753,7 +753,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
             </div>
             <div style={{ background:"#f0f7f4", border:"1px solid #b7e4c7", borderRadius:10, padding:"12px 14px", marginBottom:24 }}>
               <div style={{ fontSize:12, fontWeight:600, color:"#2d6a4f", marginBottom:8 }}>CPFIS (Invested OA)</div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }} className="mobile-single-col">
                 <div>
                   <label className="label">Amount Invested (Cost)</label>
                   <input className="input-field" type="number" placeholder="0" value={data.cpf.cpfisInvested||""} onChange={e=>setCPF("cpfisInvested",e.target.value)} />
@@ -786,7 +786,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
                   <span style={{ fontSize:14, color:"#555", fontWeight:500 }}>{inv.label}</span>
                   <button onClick={()=>saveSources({...sources, investments: sources.investments.filter(x=>x.id!==inv.id)})} style={{ background:"none", border:"none", cursor:"pointer", color:"#ddd", fontSize:14, padding:"0 2px", lineHeight:1 }} title="Remove">✕</button>
                 </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }} className="mobile-single-col">
                   <div>
                     <label className="label">Amount Invested (Cost)</label>
                     <input className="input-field" type="number" placeholder="0" value={data.investments[inv.id]?.invested||""} onChange={e=>setInv(inv.id,"invested",e.target.value)} />
@@ -889,7 +889,7 @@ function Assets({ sources, latestSnap, setPage }) {
       <div className="page-title">Assets</div>
       <div className="page-sub">View your accounts and investments. To add new ones, go to Check-in.</div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }} className="mobile-single-col">
         <div className="card">
           <div style={{ fontWeight:600, marginBottom:16 }}>Cash Accounts</div>
           {[...(sources?.cash||[])].sort((a,b)=>a.label.localeCompare(b.label)).map(c => (
@@ -1033,7 +1033,7 @@ function Expenses({ snapshots }) {
       </div>
 
       {snap ? (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1.4fr", gap:20 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1.4fr", gap:20 }} className="mobile-single-col">
           <div className="card">
             <div style={{ fontWeight:600, marginBottom:16 }}>Breakdown</div>
             {EXPENSE_CATS.map(cat => {
@@ -1148,7 +1148,7 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
         </div>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }} className="home-goal-grid">
         {/* Inputs */}
         <div className="card">
           <div style={{ fontWeight:600, marginBottom:16 }}>Goal Parameters</div>
@@ -1284,7 +1284,7 @@ function CPFProjection({ salary, currentOA }) {
     <div>
       <div style={{ fontSize:13, fontWeight:600, marginBottom:8, color:"#555" }}>CPF OA Auto-Growth Projection</div>
       <div style={{ fontSize:12, color:"#aaa", marginBottom:10 }}>Based on <M val={monthlyCPFEmployee} />/mo (20% × <M val={salary} />) CPF contributions from your salary</div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }} className="mobile-single-col">
         <div style={{ background:"#f0f7f4", borderRadius:10, padding:"10px 14px" }}>
           <div style={{ fontSize:11, color:"#888", marginBottom:3 }}>In 6 months</div>
           <div style={{ fontWeight:600, fontSize:15, color:"#2d6a4f" }}><M val={proj6} /></div>
@@ -1438,7 +1438,7 @@ function Trends({ snapshots }) {
           </ResponsiveContainer>
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }} className="mobile-single-col">
           <div className="card">
             <div style={{ fontWeight:600, marginBottom:16 }}>Savings Rate (%)</div>
             <ResponsiveContainer width="100%" height={180}>
