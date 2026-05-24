@@ -11,7 +11,10 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
-// ── Storage helpers ──────────────────────────────────────────────────────────
+// ── Supabase storage helpers ─────────────────────────────────────────────────
+const SUPABASE_URL = "https://xpqwghcdjzwyezwrrdlt.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwcXdnaGNkanp3eWV6d3JyZGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MTEzNzgsImV4cCI6MjA5NTE4NzM3OH0.NEqlMLJ29AP6cKR4h60z2m2wrmXniN7WmKt60gaia5g";
+
 const KEYS = {
   profile: "pg_profile",
   assetSources: "pg_asset_sources",
@@ -21,12 +24,31 @@ const KEYS = {
 
 async function load(key) {
   try {
-    const r = await window.storage.get(key);
-    return r ? JSON.parse(r.value) : null;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/vault_data?key=eq.${key}&select=value`, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+      }
+    });
+    const rows = await res.json();
+    if (!rows || rows.length === 0) return null;
+    return JSON.parse(rows[0].value);
   } catch { return null; }
 }
+
 async function save(key, val) {
-  try { await window.storage.set(key, JSON.stringify(val)); } catch {}
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/vault_data`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates",
+      },
+      body: JSON.stringify({ key, value: JSON.stringify(val), updated_at: new Date().toISOString() })
+    });
+  } catch {}
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
