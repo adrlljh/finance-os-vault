@@ -22,12 +22,15 @@ const KEYS = {
   checkinDraft: "pg_checkin_draft",
 };
 
+const VAULT_SECRET = import.meta.env.VITE_VAULT_SECRET || "";
+
 async function load(key) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/vault_data?key=eq.${key}&select=value`, {
       headers: {
         "apikey": SUPABASE_KEY,
         "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "x-vault-secret": VAULT_SECRET,
       }
     });
     const rows = await res.json();
@@ -45,6 +48,7 @@ async function save(key, val) {
         "Authorization": `Bearer ${SUPABASE_KEY}`,
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates",
+        "x-vault-secret": VAULT_SECRET,
       },
       body: JSON.stringify({ key, value: JSON.stringify(val), updated_at: new Date().toISOString() })
     });
@@ -115,9 +119,71 @@ function monthlyInstalment(principal, annualRate, tenureYears) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// PIN GATE
+// ════════════════════════════════════════════════════════════════════════════
+const VAULT_PIN = "101994";
+
+function PinGate({ onUnlock }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  function handleKey(digit) {
+    if (pin.length >= 6) return;
+    const next = pin + digit;
+    setPin(next);
+    setError(false);
+    if (next.length === 6) {
+      if (next === VAULT_PIN) {
+        onUnlock();
+      } else {
+        setShake(true);
+        setError(true);
+        setTimeout(() => { setPin(""); setShake(false); }, 600);
+      }
+    }
+  }
+
+  function handleDelete() { setPin(p => p.slice(0,-1)); setError(false); }
+
+  return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#f8f7f4", fontFamily:"'DM Sans',sans-serif" }}>
+      <div style={{ textAlign:"center", padding:"40px 32px", background:"#fff", borderRadius:24, border:"1px solid #ede9e0", width:320 }}>
+        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:28, marginBottom:4 }}>Vault</div>
+        <div style={{ fontSize:13, color:"#aaa", marginBottom:32 }}>own your finances</div>
+        <div style={{ display:"flex", justifyContent:"center", gap:12, marginBottom:32, animation: shake?"shake 0.5s ease":"none" }}>
+          {[0,1,2,3,4,5].map(i => (
+            <div key={i} style={{ width:14, height:14, borderRadius:"50%", background: i < pin.length ? (error?"#c0392b":"#2d6a4f") : "#ede9e0", transition:"background 0.15s" }} />
+          ))}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:12 }}>
+          {[1,2,3,4,5,6,7,8,9].map(d => (
+            <button key={d} onClick={()=>handleKey(String(d))} style={{ height:60, borderRadius:14, border:"1px solid #ede9e0", background:"#fafaf8", fontSize:22, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", color:"#1a1a1a", transition:"background 0.1s" }}
+              onMouseDown={e=>e.currentTarget.style.background="#f0f7f4"}
+              onMouseUp={e=>e.currentTarget.style.background="#fafaf8"}>
+              {d}
+            </button>
+          ))}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+          <div />
+          <button onClick={()=>handleKey("0")} style={{ height:60, borderRadius:14, border:"1px solid #ede9e0", background:"#fafaf8", fontSize:22, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", color:"#1a1a1a" }}
+            onMouseDown={e=>e.currentTarget.style.background="#f0f7f4"}
+            onMouseUp={e=>e.currentTarget.style.background="#fafaf8"}>0</button>
+          <button onClick={handleDelete} style={{ height:60, borderRadius:14, border:"none", background:"transparent", fontSize:20, cursor:"pointer", color:"#888" }}>⌫</button>
+        </div>
+        {error && <div style={{ marginTop:16, fontSize:13, color:"#c0392b" }}>Incorrect PIN</div>}
+      </div>
+      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }`}</style>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // MAIN APP
 // ════════════════════════════════════════════════════════════════════════════
 export default function App() {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("vault_unlocked") === "1");
   const [page, setPage] = useState("dashboard");
   const [profile, setProfile] = useState(null);
   const [sources, setSources] = useState(null);
@@ -147,6 +213,8 @@ export default function App() {
     setSnapshots(next);
     await save(KEYS.snapshots, next);
   }, [snapshots]);
+
+  if (!unlocked) return <PinGate onUnlock={() => { sessionStorage.setItem("vault_unlocked","1"); setUnlocked(true); }} />;
 
   if (!loaded) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#f8f7f4", fontFamily:"'DM Sans', sans-serif", color:"#888" }}>
