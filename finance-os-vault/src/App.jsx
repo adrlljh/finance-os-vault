@@ -596,7 +596,7 @@ function HomeGoalPreview({ profile, deployable, income, expTotal, setPage }) {
             <button className={`toggle-opt${hdbLoanType==="bank"?" active":""}`} onClick={()=>setHdbLoanType("bank")} style={{ fontSize:12, padding:"5px 14px" }}>Bank Loan</button>
           </div>
           <span style={{ fontSize:11, color:"#aaa", alignSelf:"center" }}>
-            {hdbLoanType==="hdb" ? "2.6% fixed · 20% dp · MSR applies" : "Market rate · 25% dp · No MSR"}
+            {hdbLoanType==="hdb" ? "2.6% · MSR" : "Market rate · No MSR"}
           </span>
         </div>
       )}
@@ -1141,7 +1141,7 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
                 <button className={`toggle-opt${hdbLoanType==="bank"?" active":""}`} onClick={()=>setHdbLoanType("bank")} style={{ fontSize:12, padding:"5px 14px" }}>Bank Loan</button>
               </div>
               <span style={{ fontSize:12, color:"#aaa" }}>
-                {hdbLoanType==="hdb" ? "2.6% fixed · 20% dp · MSR applies" : "Market rate · 25% dp · No MSR"}
+                {hdbLoanType==="hdb" ? "2.6% · MSR" : "Market rate · No MSR"}
               </span>
             </div>
           )}
