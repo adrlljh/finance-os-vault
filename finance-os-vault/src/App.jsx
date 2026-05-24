@@ -94,7 +94,7 @@ function nowLabel() { const d = new Date(); return `${MONTHS[d.getMonth()]} ${d.
 const defaultProfile = {
   name: "Adriel",
   salary: 5484,
-  debts: [],
+
   hdbGoal: { price: 550000, tenure: 25, rate: 2.6 },
   hdbBankGoal: { price: 550000, tenure: 30, rate: 2.5 },
   condoGoal: { price: 1200000, tenure: 30, rate: 2.5 },
@@ -169,7 +169,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:"#f8f7f4", fontFamily:"'DM Sans', sans-serif", color:"#1a1a1a" }}>
+    <div style={{ height:"100vh", overflow:"hidden", background:"#f8f7f4", fontFamily:"'DM Sans', sans-serif", color:"#1a1a1a" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
         * { box-sizing: border-box; margin:0; padding:0; }
@@ -297,8 +297,8 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
   // Desktop: collapsible sidebar
   const sidebarWidth = collapsed ? 64 : 220;
   return (
-    <div style={{ display:"flex", minHeight:"100vh" }}>
-      <aside style={{ width:sidebarWidth, background:"#fff", borderRight:"1px solid #ede9e0", display:"flex", flexDirection:"column", gap:4, flexShrink:0, transition:"width 0.2s ease", overflow:"hidden", padding: collapsed?"16px 8px":"28px 16px" }}>
+    <div style={{ display:"flex", height:"100vh", overflow:"hidden" }}>
+      <aside style={{ width:sidebarWidth, background:"#fff", borderRight:"1px solid #ede9e0", display:"flex", flexDirection:"column", gap:4, flexShrink:0, transition:"width 0.2s ease", overflow:"hidden", padding: collapsed?"16px 8px":"28px 16px", height:"100vh" }}>
         {/* Logo row */}
         <div style={{ display:"flex", alignItems:"center", justifyContent: collapsed?"center":"space-between", marginBottom:24, paddingLeft: collapsed?0:6 }}>
           {!collapsed && (
@@ -340,7 +340,7 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
         </button>
       </aside>
 
-      <main style={{ flex:1, padding:"32px 36px", overflowY:"auto", maxWidth:960 }}>
+      <main style={{ flex:1, padding:"32px 36px", overflowY:"auto", maxWidth:960, height:"100vh" }}>
         {children}
       </main>
     </div>
@@ -450,7 +450,7 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
           <div className="card" style={{ maxWidth:420, margin:"0 auto", padding:"48px 32px" }}>
             <div style={{ fontSize:48, marginBottom:16 }}>🌱</div>
             <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:22, marginBottom:10 }}>Welcome to Vault</div>
-            <div style={{ fontSize:14, color:"#888", marginBottom:28, lineHeight:1.6 }}>Your own your finances dashboard is ready. Start your first monthly check-in to see your net worth, home goal progress, and spending trends.</div>
+            <div style={{ fontSize:14, color:"#888", marginBottom:28, lineHeight:1.6 }}>Own your finances now. Complete your first monthly check-in to see your net worth, spending trends, and home goal progress.</div>
             <button className="btn-primary" onClick={()=>setPage("checkin")} style={{ width:"100%" }}>Start First Check-in →</button>
           </div>
         </div>
@@ -509,7 +509,7 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
               <MiniBar label="Cash" value={cashTotal} total={netWorth} color="#2d6a4f" />
               <MiniBar label="Investments" value={investTotal} total={netWorth} color="#52b788" />
               <MiniBar label="CPF OA" value={cpfOaCash} total={netWorth} color="#74c69d" />
-              {cpfCpfisCurrent > 0 && <MiniBar label="CPFIS (invested OA)" value={cpfCpfisCurrent} total={netWorth} color="#95d5b2" />}
+              {cpfCpfisCurrent > 0 && <MiniBar label="CPFIS (Invested OA)" value={cpfCpfisCurrent} total={netWorth} color="#95d5b2" />}
               <MiniBar label="CPF SA+MA" value={(snap?.cpf?.sa||0)+(snap?.cpf?.ma||0)} total={netWorth} color="#b7e4c7" />
             </div>
           ) : (
@@ -739,7 +739,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
             <SectionTitle>CPF Accounts</SectionTitle>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:12, marginBottom:12 }}>
               <div>
-                <label className="label">Ordinary (OA) — liquid</label>
+                <label className="label">Ordinary (OA)</label>
                 <input className="input-field" type="number" placeholder="0" value={data.cpf.oaCash||""} onChange={e=>setCPF("oaCash",e.target.value)} />
               </div>
               <div>
@@ -752,7 +752,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
               </div>
             </div>
             <div style={{ background:"#f0f7f4", border:"1px solid #b7e4c7", borderRadius:10, padding:"12px 14px", marginBottom:24 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:"#2d6a4f", marginBottom:8 }}>CPFIS (OA Invested)</div>
+              <div style={{ fontSize:12, fontWeight:600, color:"#2d6a4f", marginBottom:8 }}>CPFIS (Invested OA)</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
                 <div>
                   <label className="label">Amount Invested (Cost)</label>
@@ -780,7 +780,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
             </div>
 
             <SectionTitle>Investments</SectionTitle>
-            {(sources?.investments||[]).map(inv => (
+            {[...(sources?.investments||[])].sort((a,b)=>a.label.localeCompare(b.label)).map(inv => (
               <div key={inv.id} style={{ marginBottom:14, background:"#fafaf8", borderRadius:10, padding:"10px 12px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                   <span style={{ fontSize:14, color:"#555", fontWeight:500 }}>{inv.label}</span>
@@ -944,7 +944,7 @@ function Assets({ sources, latestSnap, setPage }) {
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
             <div>
               <div style={{ fontSize:14, fontWeight:500 }}>Ordinary Account</div>
-              <div style={{ fontSize:12, color:"#aaa" }}>Uninvested & liquid, deployable for housing</div>
+              <div style={{ fontSize:12, color:"#aaa" }}>Uninvested, deployable for housing</div>
             </div>
             <div style={{ textAlign:"right" }}>
               <div style={{ fontWeight:600 }}><M val={latestSnap?.cpf?.oaCash||latestSnap?.cpf?.oa||0} /></div>
@@ -960,7 +960,7 @@ function Assets({ sources, latestSnap, setPage }) {
               <div style={{ padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div>
-                    <div style={{ fontSize:14, fontWeight:500 }}>CPFIS (OA Invested)</div>
+                    <div style={{ fontSize:14, fontWeight:500 }}>CPFIS (Invested OA)</div>
                     <div style={{ fontSize:12, color:"#aaa" }}>Stocks/ETFs via CPFIS-OA · Cost: <M val={invested} /></div>
                     {invested > 0 && <div style={{ fontSize:12, color: gain>=0?"#2d6a4f":"#c0392b", marginTop:2 }}>{gain>=0?"▲":"▼"} <M val={Math.abs(gain)} /> unrealised</div>}
                   </div>
@@ -987,7 +987,7 @@ function Assets({ sources, latestSnap, setPage }) {
           ))}
           {/* CPF total deployable */}
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", background:"#f0f7f4", borderRadius:8, paddingLeft:10, paddingRight:10, marginTop:8 }}>
-            <span style={{ fontSize:13, fontWeight:500, color:"#2d6a4f" }}>Total Deployable (OA liquid + CPFIS)</span>
+            <span style={{ fontSize:13, fontWeight:500, color:"#2d6a4f" }}>Total Deployable (OA + CPFIS)</span>
             <span style={{ fontWeight:700, color:"#2d6a4f" }}><M val={(latestSnap?.cpf?.oaCash||latestSnap?.cpf?.oa||0)+(latestSnap?.cpf?.cpfisCurrent||0)} /></span>
           </div>
         </div>
@@ -1186,11 +1186,11 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
             </div>
             <div className="divider" style={{ margin:"10px 0" }} />
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
-              <span style={{ color:"#888" }}>Cash (liquid)</span>
+              <span style={{ color:"#888" }}>Cash</span>
               <span style={{ fontWeight:500 }}><M val={cashLiquid} /></span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
-              <span style={{ color:"#888" }}>CPF OA (liquid)</span>
+              <span style={{ color:"#888" }}>CPF OA</span>
               <span style={{ fontWeight:500 }}><M val={cpfOA} /></span>
             </div>
             {cpfCpfis > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
@@ -1434,7 +1434,6 @@ function Trends({ snapshots }) {
               <Tooltip formatter={amtTip} contentStyle={{ borderRadius:8, border:"1px solid #ede9e0", fontSize:13 }} />
               <Legend />
               <Line type="monotone" dataKey="netWorth" name="Net Worth" stroke="#2d6a4f" strokeWidth={2.5} dot={{ r:4 }} />
-              <Line type="monotone" dataKey="deployable" name="Deployable" stroke="#74c69d" strokeWidth={2} strokeDasharray="4 2" dot={{ r:3 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -1511,15 +1510,10 @@ function Trends({ snapshots }) {
 function Settings({ profile, saveProfile, sources, saveSources, setPage }) {
   const [name, setName] = useState(profile?.name||"");
   const [salary, setSalary] = useState(profile?.salary||"");
-  const [debts, setDebts] = useState(profile?.debts||[]);
   const [saved, setSaved] = useState(false);
 
-  function addDebt() { setDebts(d=>[...d,{ id:"d"+Date.now(), label:"", monthly:"" }]); }
-  function updateDebt(id, field, val) { setDebts(d=>d.map(x=>x.id===id?{...x,[field]:val}:x)); }
-  function removeDebt(id) { setDebts(d=>d.filter(x=>x.id!==id)); }
-
   async function handleSave() {
-    await saveProfile({ ...profile, name: name.trim(), salary: Number(salary)||0, debts });
+    await saveProfile({ ...profile, name: name.trim(), salary: Number(salary)||0, debts: [] });
     setSaved(true);
     setTimeout(()=>setSaved(false), 2000);
   }
@@ -1534,7 +1528,7 @@ function Settings({ profile, saveProfile, sources, saveSources, setPage }) {
       </div>
       <div className="page-sub">Your profile and financial baseline</div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, maxWidth:720 }}>
+      <div style={{ maxWidth:400 }}>
         <div className="card">
           <div style={{ fontWeight:600, marginBottom:16 }}>Profile</div>
           <label className="label">Your Name</label>
@@ -1542,18 +1536,6 @@ function Settings({ profile, saveProfile, sources, saveSources, setPage }) {
           <label className="label">Gross Monthly Salary (S$)</label>
           <input className="input-field" type="number" value={salary} onChange={e=>setSalary(e.target.value)} placeholder="e.g. 5000" />
           <div style={{ fontSize:12, color:"#aaa", marginTop:8 }}>Used to calculate TDSR, MSR and savings rate.</div>
-        </div>
-
-        <div className="card">
-          <div style={{ fontWeight:600, marginBottom:16 }}>Existing Debts</div>
-          {debts.map(d => (
-            <div key={d.id} style={{ display:"grid", gridTemplateColumns:"1fr 1fr auto", gap:8, marginBottom:10, alignItems:"center" }}>
-              <input className="input-field" placeholder="Label (e.g. Car loan)" value={d.label} onChange={e=>updateDebt(d.id,"label",e.target.value)} />
-              <input className="input-field" type="number" placeholder="Monthly S$" value={d.monthly} onChange={e=>updateDebt(d.id,"monthly",e.target.value)} />
-              <button className="btn-danger" onClick={()=>removeDebt(d.id)}>✕</button>
-            </div>
-          ))}
-          <button className="btn-ghost" style={{ fontSize:13, marginTop:4 }} onClick={addDebt}>+ Add Debt</button>
         </div>
       </div>
 
