@@ -22,16 +22,19 @@ const KEYS = {
   checkinDraft: "pg_checkin_draft",
 };
 
-const VAULT_SECRET = import.meta.env.VITE_VAULT_SECRET || "";
+function getAuthHeaders() {
+  const token = sessionStorage.getItem("vault_token") || SUPABASE_KEY;
+  return {
+    "apikey": SUPABASE_KEY,
+    "Authorization": `Bearer ${token}`,
+    "x-vault-secret": import.meta.env.VITE_VAULT_SECRET || "",
+  };
+}
 
 async function load(key) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/vault_data?key=eq.${key}&select=value`, {
-      headers: {
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-        "x-vault-secret": VAULT_SECRET,
-      }
+      headers: getAuthHeaders()
     });
     const rows = await res.json();
     if (!rows || rows.length === 0) return null;
@@ -44,11 +47,9 @@ async function save(key, val) {
     await fetch(`${SUPABASE_URL}/rest/v1/vault_data`, {
       method: "POST",
       headers: {
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        ...getAuthHeaders(),
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates",
-        "x-vault-secret": VAULT_SECRET,
       },
       body: JSON.stringify({ key, value: JSON.stringify(val), updated_at: new Date().toISOString() })
     });
@@ -119,62 +120,72 @@ function monthlyInstalment(principal, annualRate, tenureYears) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// PIN GATE
+// AUTH
 // ════════════════════════════════════════════════════════════════════════════
-const VAULT_PIN = "101994";
+async function signInWithGoogle() {
+  await fetch(`${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin)}`, {
+    method: "GET",
+  });
+  window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin)}`;
+}
 
-function PinGate({ onUnlock }) {
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
-  const [shake, setShake] = useState(false);
-
-  function handleKey(digit) {
-    if (pin.length >= 6) return;
-    const next = pin + digit;
-    setPin(next);
-    setError(false);
-    if (next.length === 6) {
-      if (next === VAULT_PIN) {
-        onUnlock();
-      } else {
-        setShake(true);
-        setError(true);
-        setTimeout(() => { setPin(""); setShake(false); }, 600);
+async function getSession() {
+  try {
+    // Check URL for access_token (OAuth callback)
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.replace("#", ""));
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+      if (accessToken) {
+        sessionStorage.setItem("vault_token", accessToken);
+        if (refreshToken) sessionStorage.setItem("vault_refresh", refreshToken);
+        window.history.replaceState(null, "", window.location.pathname);
+        return accessToken;
       }
     }
+    // Check sessionStorage
+    const stored = sessionStorage.getItem("vault_token");
+    if (stored) return stored;
+    return null;
+  } catch { return null; }
+}
+
+async function signOut() {
+  const token = sessionStorage.getItem("vault_token");
+  if (token) {
+    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${token}`,
+      }
+    });
   }
+  sessionStorage.removeItem("vault_token");
+  sessionStorage.removeItem("vault_refresh");
+  window.location.reload();
+}
 
-  function handleDelete() { setPin(p => p.slice(0,-1)); setError(false); }
-
+function LoginScreen() {
+  const [loading, setLoading] = useState(false);
   return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#f8f7f4", fontFamily:"'DM Sans',sans-serif" }}>
-      <div style={{ textAlign:"center", padding:"40px 32px", background:"#fff", borderRadius:24, border:"1px solid #ede9e0", width:320 }}>
-        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:28, marginBottom:4 }}>Vault</div>
-        <div style={{ fontSize:13, color:"#aaa", marginBottom:32 }}>own your finances</div>
-        <div style={{ display:"flex", justifyContent:"center", gap:12, marginBottom:32, animation: shake?"shake 0.5s ease":"none" }}>
-          {[0,1,2,3,4,5].map(i => (
-            <div key={i} style={{ width:14, height:14, borderRadius:"50%", background: i < pin.length ? (error?"#c0392b":"#2d6a4f") : "#ede9e0", transition:"background 0.15s" }} />
-          ))}
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:12 }}>
-          {[1,2,3,4,5,6,7,8,9].map(d => (
-            <button key={d} onClick={()=>handleKey(String(d))} style={{ height:60, borderRadius:14, border:"1px solid #ede9e0", background:"#fafaf8", fontSize:22, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", color:"#1a1a1a", transition:"background 0.1s" }}
-              onMouseDown={e=>e.currentTarget.style.background="#f0f7f4"}
-              onMouseUp={e=>e.currentTarget.style.background="#fafaf8"}>
-              {d}
-            </button>
-          ))}
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
-          <div />
-          <button onClick={()=>handleKey("0")} style={{ height:60, borderRadius:14, border:"1px solid #ede9e0", background:"#fafaf8", fontSize:22, fontWeight:500, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", color:"#1a1a1a" }}
-            onMouseDown={e=>e.currentTarget.style.background="#f0f7f4"}
-            onMouseUp={e=>e.currentTarget.style.background="#fafaf8"}>0</button>
-          <button onClick={handleDelete} style={{ height:60, borderRadius:14, border:"none", background:"transparent", fontSize:20, cursor:"pointer", color:"#888" }}>⌫</button>
-        </div>
-        {error && <div style={{ marginTop:16, fontSize:13, color:"#c0392b" }}>Incorrect PIN</div>}
+      <div style={{ textAlign:"center", padding:"48px 40px", background:"#fff", borderRadius:24, border:"1px solid #ede9e0", width:320 }}>
+        <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:32, marginBottom:4 }}>Vault</div>
+        <div style={{ fontSize:13, color:"#aaa", marginBottom:40 }}>own your finances</div>
+        <button
+          onClick={() => { setLoading(true); signInWithGoogle(); }}
+          disabled={loading}
+          style={{ width:"100%", padding:"14px 20px", borderRadius:12, border:"1px solid #ede9e0", background:"#fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:12, fontSize:15, fontWeight:500, fontFamily:"'DM Sans',sans-serif", color:"#1a1a1a", transition:"background 0.15s" }}
+          onMouseEnter={e=>e.currentTarget.style.background="#f8f7f4"}
+          onMouseLeave={e=>e.currentTarget.style.background="#fff"}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.48A4.8 4.8 0 0 1 4.5 7.5V5.43H1.83a8 8 0 0 0 0 7.14z"/><path fill="#EA4335" d="M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.54-2.54A8 8 0 0 0 1.83 5.43L4.5 7.5a4.8 4.8 0 0 1 4.48-3.92z"/></svg>
+          {loading ? "Redirecting…" : "Continue with Google"}
+        </button>
+        <div style={{ fontSize:12, color:"#ccc", marginTop:24 }}>Only authorised accounts can access this dashboard.</div>
       </div>
-      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }`}</style>
     </div>
   );
 }
@@ -183,7 +194,8 @@ function PinGate({ onUnlock }) {
 // MAIN APP
 // ════════════════════════════════════════════════════════════════════════════
 export default function App() {
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("vault_unlocked") === "1");
+  const [token, setToken] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [page, setPage] = useState("dashboard");
   const [profile, setProfile] = useState(null);
   const [sources, setSources] = useState(null);
@@ -214,7 +226,17 @@ export default function App() {
     await save(KEYS.snapshots, next);
   }, [snapshots]);
 
-  if (!unlocked) return <PinGate onUnlock={() => { sessionStorage.setItem("vault_unlocked","1"); setUnlocked(true); }} />;
+  useEffect(() => {
+    getSession().then(t => { setToken(t); setAuthChecked(true); });
+  }, []);
+
+  if (!authChecked) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#f8f7f4", fontFamily:"'DM Sans', sans-serif", color:"#aaa" }}>
+      Loading…
+    </div>
+  );
+
+  if (!token) return <LoginScreen />;
 
   if (!loaded) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100vh", background:"#f8f7f4", fontFamily:"'DM Sans', sans-serif", color:"#888" }}>
@@ -405,6 +427,12 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
           style={{ justifyContent: collapsed?"center":"flex-start", padding: collapsed?"10px":"10px 14px" }}>
           <span style={{ fontSize:17 }}>⚙</span>
           {!collapsed && <span>Settings</span>}
+        </button>
+        <button className="nav-item" onClick={signOut}
+          title={collapsed ? "Sign out" : ""}
+          style={{ justifyContent: collapsed?"center":"flex-start", padding: collapsed?"10px":"10px 14px", color:"#c0392b" }}>
+          <span style={{ fontSize:17 }}>⇥</span>
+          {!collapsed && <span>Sign out</span>}
         </button>
       </aside>
 
