@@ -255,6 +255,7 @@ export default function App() {
     assets: <Assets sources={sources} latestSnap={latestSnap} setPage={setPage} />,
     expenses: <Expenses snapshots={snapshots} />,
     homegoal: <HomeGoal profile={profile} saveProfile={saveProfile} latestSnap={latestSnap} />,
+    optimiser: <Optimiser profile={profile} sources={sources} snapshots={snapshots} saveProfile={saveProfile} />,
     trends: <Trends snapshots={snapshots} />,
     settings: <Settings profile={profile} saveProfile={saveProfile} sources={sources} saveSources={saveSources} setPage={setPage} />,
   };
@@ -324,6 +325,7 @@ const NAV_ITEMS = [
   { id:"assets", icon:"◈", label:"Assets" },
   { id:"expenses", icon:"◉", label:"Expenses" },
   { id:"homegoal", icon:"⌂", label:"Home Goal" },
+  { id:"optimiser", icon:"◎", label:"Optimise" },
   { id:"settings", icon:"⚙", label:"Settings" },
 ];
 
@@ -1639,6 +1641,506 @@ function Settings({ profile, saveProfile, sources, saveSources, setPage }) {
       <div style={{ marginTop:20, maxWidth:720 }}>
         <button className="btn-primary" onClick={handleSave}>{saved?"✓ Saved!":"Save Settings"}</button>
       </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// BANK OPTIMISER — rate data & engine
+// ════════════════════════════════════════════════════════════════════════════
+
+const RATES_UPDATED = "May 2026";
+
+// OCBC 360 — from 1 May 2026 rates
+// Bonus tiers: first S$75k / next S$25k (up to S$100k)
+const OCBC360 = {
+  id: "ocbc360", name: "OCBC 360", bank: "OCBC",
+  minFallBelow: 1000, fallBelowFee: 2, cap: 100000, base: 0.0005,
+  criteria: [
+    { id:"salary", label:"Salary credit ≥S$1,800/mo",         type:"salary",    minSalary:1800, bonus75:0.010, bonus25:0.020 },
+    { id:"save",   label:"Avg daily balance increase ≥S$500/mo", type:"save",   bonus75:0.004, bonus25:0.004 },
+    { id:"spend",  label:"Card spend ≥S$500/mo (OCBC cards)",  type:"cardSpend", minSpend:500,  bonus75:0.0025, bonus25:0.0025 },
+  ],
+  qualifyingCards: ["OCBC 365", "OCBC Infinity", "OCBC NXT", "OCBC 90°N", "OCBC Rewards"],
+  note: "Max realistic 1.95% p.a. (salary+save+spend). Insure/Invest categories excluded.",
+};
+
+// UOB One — salary path up to 1.9% p.a. on S$150k
+const UOBONE = {
+  id: "uob1", name: "UOB One", bank: "UOB",
+  minFallBelow: 1000, fallBelowFee: 5, cap: 150000, base: 0.0005,
+  criteria: [
+    { id:"salary",    label:"Salary credit ≥S$1,600/mo",         type:"salary",    minSalary:1600 },
+    { id:"cardSpend", label:"Card spend ≥S$500/mo (UOB cards)",   type:"cardSpend", minSpend:500 },
+  ],
+  salaryTranches: [
+    { upTo:30000,  rate:0.015 },
+    { upTo:60000,  rate:0.017 },
+    { upTo:75000,  rate:0.018 },
+    { upTo:125000, rate:0.019 },
+    { upTo:150000, rate:0.019 },
+  ],
+  giroTranches: [
+    { upTo:30000,  rate:0.010 },
+    { upTo:75000,  rate:0.012 },
+    { upTo:125000, rate:0.014 },
+  ],
+  qualifyingCards: ["UOB One Card", "UOB EVOL", "UOB Lady's Card", "UOB Visa Signature"],
+  note: "Max 1.9% p.a. with salary credit + S$500 card spend. No insurance products required.",
+};
+
+// DBS Multiplier — salary + categories + transaction volume
+const DBSMULTIPLIER = {
+  id: "dbsmulti", name: "DBS Multiplier", bank: "DBS",
+  minFallBelow: 3000, fallBelowFee: 5, cap: 100000, base: 0.0005,
+  criteria: [
+    { id:"salary",    label:"Salary credit (any amount, any DBS/POSB account)", type:"salary",    minSalary:1 },
+    { id:"cardSpend", label:"DBS/POSB card spend or PayLah retail ≥S$500",       type:"cardSpend", minSpend:500 },
+    { id:"homeloan",  label:"DBS Home Loan instalment",                           type:"homeloan" },
+    { id:"insurance", label:"Eligible DBS insurance purchase",                    type:"insurance" },
+    { id:"invest",    label:"DBS investment (unit trust / SRS etc.)",              type:"invest" },
+  ],
+  // tiers[numCategories][txVolumeBucket] → rate on first S$100k
+  tiers: {
+    1: [{ maxTx:15000, rate:0.018 }, { maxTx:30000, rate:0.019 }, { maxTx:Infinity, rate:0.022 }],
+    2: [{ maxTx:15000, rate:0.021 }, { maxTx:30000, rate:0.025 }, { maxTx:Infinity, rate:0.030 }],
+    3: [{ maxTx:15000, rate:0.024 }, { maxTx:30000, rate:0.030 }, { maxTx:Infinity, rate:0.041 }],
+  },
+  qualifyingCards: ["DBS Live Fresh", "DBS Altitude", "DBS Vantage", "DBS yuu Card", "POSB Everyday"],
+  note: "Up to 4.1% p.a. with salary + 3 categories + >S$30k/mo transactions.",
+};
+
+const ALL_ACCOUNTS = [OCBC360, UOBONE, DBSMULTIPLIER];
+
+// ── Interest calculators ──────────────────────────────────────────────────
+
+function calcOCBC360Interest(balance, metCriteria, salary) {
+  const hasSalary = metCriteria.includes("salary") && salary >= 1800;
+  const hasSave   = metCriteria.includes("save");
+  const hasSpend  = metCriteria.includes("spend");
+  const bal75 = Math.min(balance, 75000);
+  const bal25 = Math.max(0, Math.min(balance - 75000, 25000));
+  let r75 = OCBC360.base, r25 = OCBC360.base;
+  if (hasSalary) { r75 += 0.010; r25 += 0.020; }
+  if (hasSave)   { r75 += 0.004; r25 += 0.004; }
+  if (hasSpend)  { r75 += 0.0025; r25 += 0.0025; }
+  return (bal75 * r75 + bal25 * r25) / 12;
+}
+
+function calcUOBOneInterest(balance, metCriteria, salary) {
+  const hasSalary = metCriteria.includes("salary") && salary >= 1600;
+  const hasSpend  = metCriteria.includes("cardSpend");
+  const tranches = (hasSalary && hasSpend) ? UOBONE.salaryTranches : UOBONE.giroTranches;
+  if (!hasSalary && !hasSpend) return Math.min(balance, UOBONE.cap) * UOBONE.base / 12;
+  let interest = 0, prev = 0;
+  for (const t of tranches) {
+    const chunk = Math.max(0, Math.min(balance, t.upTo) - prev);
+    interest += chunk * t.rate / 12;
+    prev = t.upTo;
+    if (balance <= t.upTo) break;
+  }
+  return interest;
+}
+
+function calcDBSMultiplierInterest(balance, metCriteria, salary, monthlyTx) {
+  const hasSalary = metCriteria.includes("salary") && salary >= 1;
+  if (!hasSalary) return Math.min(balance, DBSMULTIPLIER.cap) * DBSMULTIPLIER.base / 12;
+  const cats = ["cardSpend","homeloan","insurance","invest"].filter(c => metCriteria.includes(c)).length;
+  if (cats === 0) return Math.min(balance, DBSMULTIPLIER.cap) * DBSMULTIPLIER.base / 12;
+  const key = Math.min(cats, 3);
+  const tier = DBSMULTIPLIER.tiers[key].find(t => monthlyTx < t.maxTx) || DBSMULTIPLIER.tiers[key].at(-1);
+  return Math.min(balance, DBSMULTIPLIER.cap) * tier.rate / 12;
+}
+
+function calcInterest(account, balance, metCriteria, salary, monthlyTx) {
+  if (account.id === "ocbc360")  return calcOCBC360Interest(balance, metCriteria, salary);
+  if (account.id === "uob1")     return calcUOBOneInterest(balance, metCriteria, salary);
+  if (account.id === "dbsmulti") return calcDBSMultiplierInterest(balance, metCriteria, salary, monthlyTx);
+  return 0;
+}
+
+// ── Optimiser engine ──────────────────────────────────────────────────────
+// For each candidate primary account, allocate: bulk to primary (up to cap),
+// minFallBelow to all others. Return all scenarios ranked by total interest.
+function optimiseAllocation({ totalCash, salary, cardSpend, accounts, criteriaByAccount }) {
+  const monthlyTx = salary + cardSpend;
+  return accounts.map(primary => {
+    const others = accounts.filter(a => a.id !== primary.id);
+    const reservedForOthers = others.reduce((s, a) => s + a.minFallBelow, 0);
+    const primaryBal = Math.max(0, Math.min(totalCash - reservedForOthers, primary.cap));
+    const allocation = { [primary.id]: primaryBal };
+    others.forEach(a => { allocation[a.id] = Math.min(a.minFallBelow, totalCash); });
+
+    let totalMonthlyInterest = 0;
+    const breakdown = accounts.map(a => {
+      const bal = allocation[a.id] || 0;
+      const criteria = criteriaByAccount[a.id] || [];
+      const monthlyInt = calcInterest(a, bal, criteria, salary, monthlyTx);
+      totalMonthlyInterest += monthlyInt;
+      return { accountId:a.id, name:a.name, balance:bal, monthlyInterest:monthlyInt };
+    });
+    return { primaryId:primary.id, primaryName:primary.name, allocation, breakdown, totalMonthlyInterest, annualInterest:totalMonthlyInterest*12 };
+  }).sort((a, b) => b.totalMonthlyInterest - a.totalMonthlyInterest);
+}
+
+// ── Card database ─────────────────────────────────────────────────────────
+const CARD_DB = [
+  {
+    id:"ocbc365", name:"OCBC 365", bank:"OCBC", annualFee:"S$196.20 (waived yr 1)",
+    qualifiesFor:["ocbc360"],
+    cashback:"6% dining, 3% groceries / transport / online, 0.3% others",
+    bestFor:"OCBC 360 holders — activates the S$500 spend criterion while earning cashback on everyday categories",
+    minSpend:800, spendForBonus:500, color:"#e8f5ee",
+  },
+  {
+    id:"uob1card", name:"UOB One Card", bank:"UOB", annualFee:"S$196.20 (waived yr 1)",
+    qualifiesFor:["uob1"],
+    cashback:"Up to 10% at Shell / Cold Storage / 7-Eleven, 5% SimplyGo, 3.33% on S$2k+/mo spend",
+    bestFor:"UOB One holders — unlocks the card spend criterion and pairs perfectly for grocery / transport cashback",
+    minSpend:500, spendForBonus:500, color:"#fef3e2",
+  },
+  {
+    id:"dbsyuu", name:"DBS yuu Card", bank:"DBS", annualFee:"S$196.20 (waived yr 1)",
+    qualifiesFor:["dbsmulti"],
+    cashback:"Up to 10% at NTUC FairPrice, Kopitiam, Unity, Cheers (paid in yuu points)",
+    bestFor:"DBS Multiplier holders who grocery shop at NTUC — high earn rate + activates card spend category",
+    minSpend:600, spendForBonus:500, color:"#f0f0ec",
+  },
+  {
+    id:"dbs_livefresh", name:"DBS Live Fresh", bank:"DBS", annualFee:"S$196.20 (waived yr 1)",
+    qualifiesFor:["dbsmulti"],
+    cashback:"5% online spend, 5% contactless, 0.3% others (min S$500 spend)",
+    bestFor:"DBS Multiplier holders spending heavily online or via contactless payments",
+    minSpend:500, spendForBonus:500, color:"#f0f0ec",
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════════════
+// OPTIMISER PAGE
+// ════════════════════════════════════════════════════════════════════════════
+function Optimiser({ profile, sources, snapshots, saveProfile }) {
+  const latestSnap = snapshots && Object.keys(snapshots).sort().reverse().map(k => snapshots[k])[0];
+  const salary = Number(profile?.salary) || 0;
+
+  // Detect which known accounts the user holds from their cash sources
+  const heldLabels = (sources?.cash || []).map(c => c.label.toLowerCase());
+  const detectedIds = ALL_ACCOUNTS.filter(a =>
+    heldLabels.some(l => l.includes(a.bank.toLowerCase()) || l.includes(a.name.toLowerCase().split(" ")[1] || ""))
+  ).map(a => a.id);
+  const activeAccounts = detectedIds.length > 0
+    ? ALL_ACCOUNTS.filter(a => detectedIds.includes(a.id))
+    : ALL_ACCOUNTS; // show all if nothing matched (empty/demo state)
+
+  // Total cash from latest snapshot
+  const totalCash = latestSnap
+    ? (sources?.cash || []).reduce((s, c) => s + (latestSnap.cash?.[c.id] || 0), 0)
+    : 0;
+
+  // Use total expenses as proxy for monthly card spend (conservative)
+  const cardSpend = latestSnap
+    ? Object.values(latestSnap.expenses || {}).reduce((s, v) => s + v, 0)
+    : 0;
+
+  // Criteria state — salary mutually exclusive across accounts
+  const defaultCriteria = {
+    ocbc360:  ["salary", "save", "spend"],
+    uob1:     ["cardSpend"],
+    dbsmulti: ["cardSpend"],
+  };
+  const [criteriaByAccount, setCriteriaByAccount] = useState(
+    profile?.optimiserCriteria || defaultCriteria
+  );
+
+  // Derived: which account currently holds salary
+  const salaryCreditId = Object.keys(criteriaByAccount).find(id =>
+    (criteriaByAccount[id] || []).includes("salary")
+  ) || null;
+
+  async function saveCriteria(next) {
+    setCriteriaByAccount(next);
+    await saveProfile({ ...profile, optimiserCriteria: next });
+  }
+
+  function toggleCriterion(accountId, criterionId) {
+    let next = JSON.parse(JSON.stringify(criteriaByAccount));
+    const isAdding = !(next[accountId] || []).includes(criterionId);
+    // Salary is mutually exclusive — strip from all accounts first
+    if (criterionId === "salary" && isAdding) {
+      Object.keys(next).forEach(id => { next[id] = (next[id] || []).filter(c => c !== "salary"); });
+    }
+    next[accountId] = isAdding
+      ? [...(next[accountId] || []), criterionId]
+      : (next[accountId] || []).filter(c => c !== criterionId);
+    saveCriteria(next);
+  }
+
+  // Run optimiser
+  const scenarios = optimiseAllocation({ totalCash, salary, cardSpend, accounts:activeAccounts, criteriaByAccount });
+  const best = scenarios[0];
+
+  // Current interest based on actual snapshot balances
+  const currentActualInterest = activeAccounts.reduce((sum, a) => {
+    const bal = latestSnap
+      ? (sources?.cash || [])
+          .filter(c => c.label.toLowerCase().includes(a.bank.toLowerCase()))
+          .reduce((s, c) => s + (latestSnap.cash?.[c.id] || 0), 0)
+      : 0;
+    return sum + calcInterest(a, bal, criteriaByAccount[a.id] || [], salary, salary + cardSpend);
+  }, 0);
+
+  const uplift = best.totalMonthlyInterest - currentActualInterest;
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4, flexWrap:"wrap", gap:8 }}>
+        <div className="page-title">Cash Optimiser</div>
+        <span className="tag tag-amber">Rates: {RATES_UPDATED}</span>
+      </div>
+      <div className="page-sub">Find the optimal split of your cash across accounts to maximise total monthly interest.</div>
+
+      {/* Summary strip */}
+      {totalCash > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:24 }} className="stat-grid">
+          <div className="stat-card">
+            <div className="stat-lbl">Total Cash</div>
+            <div className="stat-val"><M val={totalCash} /></div>
+            <div style={{ fontSize:12, color:"#aaa", marginTop:2 }}>across all cash accounts</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-lbl">Current Est. Monthly Interest</div>
+            <div className="stat-val" style={{ color:"#888" }}><M val={currentActualInterest} /></div>
+            <div style={{ fontSize:12, color:"#aaa", marginTop:2 }}><M val={currentActualInterest*12} /> / yr</div>
+          </div>
+          <div className="stat-card" style={{ background:"#f0f7f4", borderColor:"#b7e4c7" }}>
+            <div className="stat-lbl">Optimised Monthly Interest</div>
+            <div className="stat-val" style={{ color:"#2d6a4f" }}><M val={best.totalMonthlyInterest} /></div>
+            <div style={{ fontSize:12, color:"#2d6a4f", marginTop:2 }}>
+              {uplift > 1 ? <span>+<M val={uplift} />/mo · <M val={uplift*12} />/yr more</span> : "Already optimal!"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1.2fr", gap:20, marginBottom:20 }} className="mobile-single-col">
+
+        {/* ── LEFT: criteria setup ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+          <div className="card">
+            <div style={{ fontWeight:600, marginBottom:4 }}>Your Setup</div>
+            <div style={{ fontSize:13, color:"#888", marginBottom:16 }}>
+              Tick the criteria you actually meet each month. Salary can only be credited to one account — ticking it elsewhere moves it automatically.
+            </div>
+
+            {salaryCreditId && (
+              <div style={{ background:"#f0f7f4", border:"1px solid #b7e4c7", borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:13, color:"#2d6a4f", display:"flex", alignItems:"center", gap:8 }}>
+                <span>✓</span>
+                <span>Salary currently credited to <strong>{ALL_ACCOUNTS.find(a => a.id === salaryCreditId)?.name}</strong></span>
+              </div>
+            )}
+
+            {activeAccounts.map(account => {
+              const met = criteriaByAccount[account.id] || [];
+              return (
+                <div key={account.id} style={{ marginBottom:20 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                    <div style={{ fontWeight:600, fontSize:14 }}>{account.name}</div>
+                    <span className={`tag ${met.length === account.criteria.length ? "tag-green" : met.length > 0 ? "tag-amber" : "tag-red"}`}>
+                      {met.length}/{account.criteria.length} met
+                    </span>
+                  </div>
+                  {account.criteria.map(c => {
+                    const isMet = met.includes(c.id);
+                    const salaryElsewhere = c.type === "salary" && !isMet && salaryCreditId && salaryCreditId !== account.id;
+                    return (
+                      <div key={c.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"8px 0", borderBottom:"1px solid #f4f0e8" }}>
+                        <button
+                          onClick={() => toggleCriterion(account.id, c.id)}
+                          style={{ width:20, height:20, borderRadius:5, border:isMet?"none":"1.5px solid #ddd", background:isMet?"#2d6a4f":"#fff", color:"#fff", cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}
+                        >{isMet ? "✓" : ""}</button>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:13, color:isMet?"#1a1a1a":"#888" }}>{c.label}</div>
+                          {salaryElsewhere && (
+                            <div style={{ fontSize:11, color:"#d97706", marginTop:2 }}>
+                              Currently at {ALL_ACCOUNTS.find(a => a.id === salaryCreditId)?.name} — tick here to move it
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize:11, color:"#aaa", marginTop:8, fontStyle:"italic" }}>{account.note}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── RIGHT: results ── */}
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+
+          {/* Best allocation */}
+          <div className="card">
+            <div style={{ fontWeight:600, marginBottom:4 }}>Recommended Allocation</div>
+            <div style={{ fontSize:13, color:"#888", marginBottom:16 }}>
+              Primary: <strong style={{ color:"#2d6a4f" }}>{best.primaryName}</strong> — bulk of cash goes here, others kept at minimum to avoid fall-below fees.
+            </div>
+            {best.breakdown.map(b => {
+              const acct = ALL_ACCOUNTS.find(a => a.id === b.accountId);
+              const isPrimary = b.accountId === best.primaryId;
+              const annualRate = b.balance > 0 ? (b.monthlyInterest * 12 / b.balance * 100) : 0;
+              return (
+                <div key={b.accountId} style={{ background:isPrimary?"#f0f7f4":"#fafaf8", border:`1px solid ${isPrimary?"#b7e4c7":"#ede9e0"}`, borderRadius:10, padding:"14px 16px", marginBottom:10 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+                    <div>
+                      <div style={{ fontWeight:600, fontSize:14 }}>{b.name}</div>
+                      {isPrimary && <span className="tag tag-green" style={{ fontSize:10, marginTop:2, display:"inline-block" }}>Primary</span>}
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontWeight:700, fontSize:16, color:isPrimary?"#2d6a4f":"#1a1a1a" }}><M val={b.balance} /></div>
+                      <div style={{ fontSize:11, color:"#aaa" }}>balance</div>
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#888" }}>
+                    <span>Monthly interest</span>
+                    <span style={{ fontWeight:600, color:isPrimary?"#2d6a4f":"#555" }}><M val={b.monthlyInterest} /></span>
+                  </div>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#888" }}>
+                    <span>Effective rate</span>
+                    <span style={{ fontWeight:500 }}>{b.balance > 0 ? fmtPct(annualRate) : "–"} p.a.</span>
+                  </div>
+                  {!isPrimary && acct && (
+                    <div style={{ fontSize:11, color:"#aaa", marginTop:6 }}>
+                      Keep ≥<M val={acct.minFallBelow} /> to avoid S${acct.fallBelowFee}/mo fall-below fee
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 16px", background:"#1a1a1a", borderRadius:10, marginTop:4 }}>
+              <span style={{ color:"#fff", fontWeight:600 }}>Total monthly interest</span>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ color:"#74c69d", fontWeight:700, fontSize:16 }}><M val={best.totalMonthlyInterest} /></div>
+                <div style={{ color:"#888", fontSize:11 }}><M val={best.annualInterest} /> / yr</div>
+              </div>
+            </div>
+          </div>
+
+          {/* All scenarios */}
+          <div className="card">
+            <div style={{ fontWeight:600, marginBottom:16 }}>All Scenarios</div>
+            {scenarios.map((r, i) => (
+              <div key={r.primaryId} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:500, display:"flex", alignItems:"center", gap:8 }}>
+                    {r.primaryName} primary
+                    {i === 0 && <span className="tag tag-green" style={{ fontSize:10 }}>Best</span>}
+                  </div>
+                  <div style={{ fontSize:12, color:"#aaa" }}>
+                    {r.breakdown.filter(b => b.accountId !== r.primaryId).map(b => `${b.name} min`).join(", ")}
+                  </div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontWeight:700, color:i===0?"#2d6a4f":"#1a1a1a" }}><M val={r.totalMonthlyInterest} />/mo</div>
+                  <div style={{ fontSize:11, color:"#aaa" }}><M val={r.annualInterest} />/yr</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Card suggestions */}
+          <CardSuggestions salaryCreditId={salaryCreditId} criteriaByAccount={criteriaByAccount} cardSpend={cardSpend} />
+        </div>
+      </div>
+
+      {/* Rate reference table */}
+      <div className="card">
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+          <div style={{ fontWeight:600 }}>Rate Reference</div>
+          <span style={{ fontSize:12, color:"#aaa" }}>Updated {RATES_UPDATED} · Always verify with bank before acting</span>
+        </div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <thead>
+              <tr style={{ borderBottom:"2px solid #ede9e0" }}>
+                {["Account","Max p.a.","Salary required","Card spend","Cap","Notes"].map(h => (
+                  <th key={h} style={{ textAlign:"left", padding:"8px 12px", color:"#888", fontWeight:500, fontSize:12 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { name:"OCBC 360",      max:"1.95%*", salary:"≥S$1,800", card:"≥S$500 (OCBC)",    cap:"S$100k", note:"*Salary+save+spend only. Insure/invest excluded." },
+                { name:"UOB One",       max:"1.9%",   salary:"≥S$1,600", card:"≥S$500 (UOB)",     cap:"S$150k", note:"GIRO-only path caps at 1.4%. Clean, no products needed." },
+                { name:"DBS Multiplier",max:"4.1%",   salary:"Any",      card:"≥S$500 (DBS/PayLah)",cap:"S$100k", note:"Needs salary + ≥3 categories + >S$30k/mo transactions." },
+              ].map((r, i) => (
+                <tr key={r.name} style={{ borderBottom:"1px solid #f4f0e8", background:i%2===0?"#fff":"#fafaf8" }}>
+                  <td style={{ padding:"10px 12px", fontWeight:500 }}>{r.name}</td>
+                  <td style={{ padding:"10px 12px", color:"#2d6a4f", fontWeight:600 }}>{r.max}</td>
+                  <td style={{ padding:"10px 12px" }}>{r.salary}</td>
+                  <td style={{ padding:"10px 12px" }}>{r.card}</td>
+                  <td style={{ padding:"10px 12px" }}>{r.cap}</td>
+                  <td style={{ padding:"10px 12px", color:"#888", fontSize:12 }}>{r.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Card Suggestions ──────────────────────────────────────────────────────
+function CardSuggestions({ salaryCreditId, criteriaByAccount, cardSpend }) {
+  const primaryAccount = ALL_ACCOUNTS.find(a => a.id === salaryCreditId);
+  const relevantCards = CARD_DB.filter(c => c.qualifiesFor.includes(salaryCreditId));
+  const otherCards    = CARD_DB.filter(c => !c.qualifiesFor.includes(salaryCreditId));
+  const hasSpend = salaryCreditId
+    ? (criteriaByAccount[salaryCreditId] || []).some(c => c === "cardSpend" || c === "spend")
+    : false;
+
+  return (
+    <div className="card">
+      <div style={{ fontWeight:600, marginBottom:4 }}>Card Suggestions</div>
+      <div style={{ fontSize:13, color:"#888", marginBottom:16 }}>
+        Cards that activate the spend criterion for your primary account
+        {primaryAccount ? ` (${primaryAccount.name})` : ""}.
+      </div>
+
+      {!hasSpend && primaryAccount && (
+        <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:13, color:"#92400e" }}>
+          ⚠️ Card spend criterion not yet ticked for {primaryAccount.name}. The right card can unlock bonus interest.
+        </div>
+      )}
+
+      {relevantCards.length > 0 ? relevantCards.map(card => (
+        <div key={card.id} style={{ background:card.color, borderRadius:10, padding:"14px 16px", marginBottom:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
+            <div style={{ fontWeight:600, fontSize:14 }}>{card.name}</div>
+            <span className="tag tag-green" style={{ fontSize:10 }}>Unlocks spend bonus</span>
+          </div>
+          <div style={{ fontSize:13, color:"#555", marginBottom:6 }}>{card.cashback}</div>
+          <div style={{ fontSize:12, color:"#888" }}>{card.bestFor}</div>
+          <div style={{ fontSize:12, color:"#aaa", marginTop:4 }}>Annual fee: {card.annualFee} · Min spend for bonus: S${card.spendForBonus}</div>
+        </div>
+      )) : (
+        <div style={{ fontSize:13, color:"#aaa" }}>Select an account with salary credited to see card suggestions.</div>
+      )}
+
+      {otherCards.length > 0 && (
+        <details style={{ marginTop:8 }}>
+          <summary style={{ fontSize:13, color:"#888", cursor:"pointer", userSelect:"none" }}>Other cards (for other accounts)</summary>
+          <div style={{ marginTop:10 }}>
+            {otherCards.map(card => (
+              <div key={card.id} style={{ background:"#fafaf8", border:"1px solid #ede9e0", borderRadius:10, padding:"12px 14px", marginBottom:8 }}>
+                <div style={{ fontWeight:500, fontSize:13, marginBottom:4 }}>{card.name} <span style={{ color:"#aaa", fontWeight:400 }}>· {card.bank}</span></div>
+                <div style={{ fontSize:12, color:"#888" }}>{card.cashback}</div>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
