@@ -123,10 +123,8 @@ function monthlyInstalment(principal, annualRate, tenureYears) {
 // AUTH
 // ════════════════════════════════════════════════════════════════════════════
 async function signInWithGoogle() {
-  await fetch(`${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin)}`, {
-    method: "GET",
-  });
-  window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(window.location.origin)}`;
+  const redirectTo = window.location.origin + window.location.pathname;
+  window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
 }
 
 async function getSession() {
