@@ -31,15 +31,18 @@ function getAuthHeaders() {
   };
 }
 
-async function load(key) {
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/vault_data?key=eq.${key}&select=value`, {
-      headers: getAuthHeaders()
-    });
-    const rows = await res.json();
-    if (!rows || rows.length === 0) return null;
-    return JSON.parse(rows[0].value);
-  } catch { return null; }
+async function load(key, retries=2) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/vault_data?key=eq.${key}&select=value`, {
+        headers: getAuthHeaders()
+      });
+      const rows = await res.json();
+      if (rows && rows.length > 0) return JSON.parse(rows[0].value);
+    } catch {}
+    if (i < retries-1) await new Promise(r => setTimeout(r, 500));
+  }
+  return null;
 }
 
 async function save(key, val) {
@@ -207,7 +210,7 @@ export default function App() {
         load(KEYS.profile), load(KEYS.assetSources), load(KEYS.snapshots)
       ]);
       if (!p) { p = defaultProfile; await save(KEYS.profile, p); }
-      if (!s) { s = defaultSources; await save(KEYS.assetSources, s); }
+      if (!s) { s = defaultSources; } // don't auto-save empty sources
       if (!snaps) { snaps = {}; }
       setProfile(p);
       setSources(s);
