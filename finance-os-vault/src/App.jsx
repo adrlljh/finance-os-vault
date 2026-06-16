@@ -11,7 +11,6 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
-// ── Supabase storage helpers ─────────────────────────────────────────────────
 const SUPABASE_URL = "https://xpqwghcdjzwyezwrrdlt.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhwcXdnaGNkanp3eWV6d3JyZGx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MTEzNzgsImV4cCI6MjA5NTE4NzM3OH0.NEqlMLJ29AP6cKR4h60z2m2wrmXniN7WmKt60gaia5g";
 
@@ -58,7 +57,6 @@ async function save(key, val) {
   } catch {}
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
 const EXPENSE_CATS = [
   "Housing","Food","Transport","Entertainment",
   "Health","Shopping","Insurance","Subscriptions","Travel","Family/Parents","Others"
@@ -78,14 +76,12 @@ function fmtPct(n) {
   return `${n.toFixed(1)}%`;
 }
 
-// Component that masks monetary values when privacy mode is on
 function M({ val, pct }) {
   const masked = useMask();
   if (masked) return <span style={{ letterSpacing:"0.1em", color:"#bbb" }}>••••••</span>;
   return <span>{pct ? fmtPct(val) : fmtSGD(val)}</span>;
 }
 
-// Hook that returns chart-safe formatters respecting mask state
 function useChartFmt() {
   const masked = useMask();
   const amt = masked ? ()=>"••••" : v=>fmtSGD(v);
@@ -97,7 +93,6 @@ function monthKey(y, m) { return `${y}-${String(m+1).padStart(2,"0")}`; }
 function nowKey() { const d = new Date(); return monthKey(d.getFullYear(), d.getMonth()); }
 function nowLabel() { const d = new Date(); return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`; }
 
-// ── Default data ─────────────────────────────────────────────────────────────
 const defaultProfile = {
   name: "Adriel",
   salary: 5484,
@@ -111,8 +106,6 @@ const defaultSources = {
   investments: [],
 };
 
-// ── Dummy snapshots (6 months of data) ───────────────────────────────────────
-// ── Mortgage calc ─────────────────────────────────────────────────────────────
 function monthlyInstalment(principal, annualRate, tenureYears) {
   if (!principal || !annualRate || !tenureYears) return 0;
   const r = annualRate / 100 / 12;
@@ -121,9 +114,6 @@ function monthlyInstalment(principal, annualRate, tenureYears) {
   return principal * r * Math.pow(1+r,n) / (Math.pow(1+r,n)-1);
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// AUTH
-// ════════════════════════════════════════════════════════════════════════════
 async function signInWithGoogle() {
   const redirectTo = window.location.origin + window.location.pathname;
   window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
@@ -131,7 +121,6 @@ async function signInWithGoogle() {
 
 async function getSession() {
   try {
-    // Check URL for access_token (OAuth callback)
     const hash = window.location.hash;
     if (hash && hash.includes("access_token")) {
       const params = new URLSearchParams(hash.replace("#", ""));
@@ -144,7 +133,6 @@ async function getSession() {
         return accessToken;
       }
     }
-    // Check sessionStorage
     const stored = sessionStorage.getItem("vault_token");
     if (stored) return stored;
     return null;
@@ -190,9 +178,6 @@ function LoginScreen() {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// MAIN APP
-// ════════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [token, setToken] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -244,7 +229,6 @@ export default function App() {
     </div>
   );
 
-  // is current month logged?
   const currentLogged = snapshots && snapshots[nowKey()];
   const latestSnap = snapshots && Object.keys(snapshots).sort().reverse().map(k => snapshots[k])[0];
 
@@ -267,34 +251,57 @@ export default function App() {
         input, select { outline:none; }
         input:focus, select:focus { border-color:#2d6a4f !important; }
         ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:#d4d0c8; border-radius:2px; }
-        .card { background:#fff; border-radius:16px; padding:24px; border:1px solid #ede9e0; }
-        .btn-primary { background:#2d6a4f; color:#fff; border:none; border-radius:10px; padding:12px 24px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; transition:background 0.15s; }
-        .btn-primary:hover { background:#1e4d39; }
+        .card { background:#fff; border-radius:16px; padding:24px; border:1px solid #ede9e0; box-shadow:0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03); transition:box-shadow 0.2s ease; }
+        .card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04); }
+        .btn-primary { background:#2d6a4f; color:#fff; border:none; border-radius:10px; padding:12px 24px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; transition:all 0.15s; transform:translateY(0); box-shadow:0 2px 6px rgba(45,106,79,0.3); }
+        .btn-primary:hover { background:#1e4d39; transform:translateY(-1px); box-shadow:0 4px 12px rgba(45,106,79,0.35); }
+        .btn-primary:active { transform:translateY(0); box-shadow:0 1px 3px rgba(45,106,79,0.2); }
         .btn-ghost { background:transparent; color:#2d6a4f; border:1px solid #2d6a4f; border-radius:10px; padding:10px 20px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; transition:all 0.15s; }
-        .btn-ghost:hover { background:#f0f7f4; }
-        .btn-danger { background:transparent; color:#c0392b; border:1px solid #e8bbb7; border-radius:8px; padding:6px 14px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; }
-        .input-field { width:100%; border:1px solid #e8e4db; border-radius:10px; padding:10px 14px; font-family:'DM Sans',sans-serif; font-size:14px; color:#1a1a1a; background:#fafaf8; transition:border 0.15s; }
+        .btn-ghost:hover { background:#f0f7f4; transform:translateY(-1px); }
+        .btn-ghost:active { transform:translateY(0); }
+        .btn-danger { background:transparent; color:#c0392b; border:1px solid #e8bbb7; border-radius:8px; padding:6px 14px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; transition:all 0.15s; }
+        .btn-danger:hover { background:#fde8e6; }
+        .input-field { width:100%; border:1px solid #e8e4db; border-radius:10px; padding:10px 14px; font-family:'DM Sans',sans-serif; font-size:14px; color:#1a1a1a; background:#fafaf8; transition:border 0.15s, box-shadow 0.15s; }
+        .input-field:focus { box-shadow:0 0 0 3px rgba(45,106,79,0.1); }
         .label { font-size:12px; font-weight:500; color:#888; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; display:block; }
         .page-title { font-family:'DM Serif Display', serif; font-size:28px; color:#1a1a1a; margin-bottom:4px; }
         .page-sub { font-size:14px; color:#888; margin-bottom:24px; }
-        .nav-item { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; color:#666; transition:all 0.15s; border:none; background:transparent; font-family:'DM Sans',sans-serif; width:100%; }
-        .nav-item:hover { background:#f0f0ec; color:#1a1a1a; }
-        .nav-item.active { background:#2d6a4f; color:#fff; }
+        .nav-item { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; cursor:pointer; font-size:14px; font-weight:500; color:#666; transition:all 0.2s; border:none; background:transparent; font-family:'DM Sans',sans-serif; width:100%; }
+        .nav-item:hover { background:#f0f0ec; color:#1a1a1a; transform:translateX(2px); }
+        .nav-item.active { background:linear-gradient(135deg,#2d6a4f,#40916c); color:#fff; box-shadow:0 3px 10px rgba(45,106,79,0.3); }
         .progress-bar { height:8px; background:#ede9e0; border-radius:99px; overflow:hidden; }
-        .progress-fill { height:100%; background:#2d6a4f; border-radius:99px; transition:width 0.5s ease; }
+        .progress-fill { height:100%; background:#2d6a4f; border-radius:99px; transition:width 1s cubic-bezier(0.4,0,0.2,1); animation:progressIn 1s cubic-bezier(0.4,0,0.2,1); }
+        @keyframes progressIn { from { width:0% !important; } }
         .tag { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:500; }
         .tag-green { background:#e8f5ee; color:#2d6a4f; }
         .tag-amber { background:#fef3e2; color:#d97706; }
         .tag-red { background:#fde8e6; color:#c0392b; }
         .step-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; flex-shrink:0; }
         .divider { height:1px; background:#ede9e0; margin:20px 0; }
-        .stat-card { background:#fff; border:1px solid #ede9e0; border-radius:14px; padding:20px; }
+        .stat-card { background:#fff; border:1px solid #ede9e0; border-radius:14px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,0.04); transition:all 0.2s ease; }
+        .stat-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.08); transform:translateY(-1px); }
         .stat-val { font-family:'DM Serif Display',serif; font-size:26px; color:#1a1a1a; }
         .stat-lbl { font-size:12px; color:#aaa; font-weight:500; margin-top:2px; }
         .toggle-pill { display:flex; background:#f0f0ec; border-radius:10px; padding:3px; gap:2px; }
         .toggle-opt { padding:7px 18px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; border:none; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
         .toggle-opt.active { background:#fff; color:#1a1a1a; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
         .toggle-opt:not(.active) { background:transparent; color:#888; }
+        @keyframes progressFill { from { width:0%; } }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        .animate-in { animation: fadeInUp 0.4s ease forwards; } .page-content { animation: fadeInUp 0.3s ease; }
+        .row { display:flex; align-items:center; }
+        .row-between { display:flex; align-items:center; justify-content:space-between; }
+        .row-end { display:flex; align-items:center; justify-content:flex-end; }
+        .col { display:flex; flex-direction:column; }
+        .gap-4 { gap:4px; } .gap-6 { gap:6px; } .gap-8 { gap:8px; } .gap-10 { gap:10px; } .gap-12 { gap:12px; } .gap-16 { gap:16px; }
+        .mb-4 { margin-bottom:4px; } .mb-6 { margin-bottom:6px; } .mb-8 { margin-bottom:8px; } .mb-10 { margin-bottom:10px; } .mb-12 { margin-bottom:12px; } .mb-16 { margin-bottom:16px; } .mb-20 { margin-bottom:20px; } .mb-24 { margin-bottom:24px; }
+        .mt-4 { margin-top:4px; } .mt-6 { margin-top:6px; } .mt-8 { margin-top:8px; }
+        .text-sm { font-size:13px; } .text-xs { font-size:12px; } .text-xxs { font-size:11px; }
+        .text-muted { color:#888; } .text-faint { color:#aaa; } .text-green { color:#2d6a4f; } .text-red { color:#c0392b; }
+        .font-500 { font-weight:500; } .font-600 { font-weight:600; } .font-700 { font-weight:700; }
+        .w-full { width:100%; }
+        .flex-1 { flex:1; } .flex-shrink-0 { flex-shrink:0; }
+        .wrap { flex-wrap:wrap; }
         .step-mobile { display:none; } @media (max-width: 767px) { .card { padding:16px; border-radius:12px; } .page-title { font-size:22px; } .stat-val { font-size:20px; } .stat-grid { grid-template-columns: repeat(2,1fr) !important; } .stat-grid > *:last-child:nth-child(odd) { grid-column: span 2; } .chart-grid { grid-template-columns: 1fr !important; } .goal-grid { grid-template-columns: repeat(2,1fr) !important; } .step-desktop { display:none !important; } .step-mobile { display:block !important; } .home-goal-grid { grid-template-columns: 1fr !important; } .mobile-single-col { grid-template-columns: 1fr !important; } }
       `}</style>
 
@@ -384,16 +391,15 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
     );
   }
 
-  // Desktop: collapsible sidebar
   const sidebarWidth = collapsed ? 64 : 220;
   return (
     <div style={{ display:"flex", height:"100vh", overflow:"hidden", position:"fixed", top:0, left:0, right:0, bottom:0 }}>
-      <aside style={{ width:sidebarWidth, background:"#fff", borderRight:"1px solid #ede9e0", display:"flex", flexDirection:"column", gap:4, flexShrink:0, transition:"width 0.2s ease", overflow:"hidden", padding: collapsed?"16px 8px":"28px 16px", height:"100vh" }}>
+      <aside style={{ width:sidebarWidth, background:"linear-gradient(180deg,#f9fdf7 0%,#fff 100%)", borderRight:"1px solid #e8f0ec", display:"flex", flexDirection:"column", gap:4, flexShrink:0, transition:"width 0.2s ease", overflow:"hidden", padding: collapsed?"16px 8px":"28px 16px", height:"100vh" }}>
         {/* Logo row */}
         <div style={{ display:"flex", alignItems:"center", justifyContent: collapsed?"center":"space-between", marginBottom:24, paddingLeft: collapsed?0:6 }}>
           {!collapsed && (
             <div>
-              <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:20, color:"#1a1a1a" }}>Vault</div>
+              <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:20, background:"linear-gradient(135deg,#2d6a4f,#52b788)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>Vault</div>
               <div style={{ fontSize:11, color:"#aaa", marginTop:2 }}>own your finances</div>
             </div>
           )}
@@ -420,7 +426,7 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
           </button>
         ))}
 
-        <div style={{ flex:1 }} />
+        <div className="flex-1" />
         <button className={`nav-item${page==="settings"?" active":""}`}
           onClick={()=>setPage("settings")}
           title={collapsed ? "Settings" : ""}
@@ -443,9 +449,6 @@ function ResponsiveLayout({ page, setPage, currentLogged, nowLabel, isMasked, to
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// DYNAMIC SUBTEXT
-// ════════════════════════════════════════════════════════════════════════════
 function DynamicSubtext({ nwDelta, savingsRate, expTotal, income, snapshots }) {
   const allKeys = Object.keys(snapshots||{}).sort();
   const prevKey = allKeys.length >= 2 ? allKeys[allKeys.length-2] : null;
@@ -479,21 +482,17 @@ function DynamicSubtext({ nwDelta, savingsRate, expTotal, income, snapshots }) {
   }
 
   return (
-    <div className="page-sub" style={{ marginBottom:24 }}>
+    <div className="page-sub" className="mb-24">
       {insight}<span style={{ color:"#aaa" }}>{subInsight}</span>
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// DASHBOARD
-// ════════════════════════════════════════════════════════════════════════════
 function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, setPage }) {
   const snap = latestSnap;
   const snapKeys = Object.keys(snapshots||{}).sort();
   const prevSnap = snapKeys.length >= 2 ? snapshots[snapKeys[snapKeys.length-2]] : null;
 
-  // Net worth
   const cashTotal = snap ? (sources?.cash||[]).reduce((s,c)=> s+(snap.cash?.[c.id]||0),0) : 0;
   const investTotal = snap ? (sources?.investments||[]).reduce((s,i)=> s+(snap.investments?.[i.id]?.current||0),0) : 0;
   const cpfOaCash = snap?.cpf?.oaCash || snap?.cpf?.oa || 0; // fallback to oa for legacy data
@@ -502,7 +501,6 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
   const netWorth = cashTotal + investTotal + cpfTotal;
   const deployable = cashTotal + cpfOaCash + cpfCpfisCurrent;
 
-  // Prev net worth for MoM delta
   const prevNetWorth = prevSnap ? (
     (sources?.cash||[]).reduce((s,c)=>s+(prevSnap.cash?.[c.id]||0),0) +
     (sources?.investments||[]).reduce((s,i)=>s+(prevSnap.investments?.[i.id]?.current||0),0) +
@@ -510,22 +508,18 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
   ) : null;
   const nwDelta = prevNetWorth !== null ? netWorth - prevNetWorth : null;
 
-  // Savings rate + expenses
   const income = snap?.income || Number(profile?.salary) || 0;
   const expTotal = snap ? Object.values(snap.expenses||{}).reduce((s,v)=>s+v,0) : 0;
   const prevExpTotal = prevSnap ? Object.values(prevSnap.expenses||{}).reduce((s,v)=>s+v,0) : null;
   const expDelta = prevExpTotal !== null ? expTotal - prevExpTotal : null;
   const savingsRate = income > 0 ? ((income - expTotal) / income * 100) : null;
 
-  // Last updated
   const lastKey = snapKeys[snapKeys.length-1];
   const lastUpdatedLabel = lastKey ? (() => { const [y,m]=lastKey.split("-"); return `${MONTHS[parseInt(m)-1]} ${y}`; })() : null;
   const isStale = lastKey ? (() => { const [y,m]=lastKey.split("-"); const d=new Date(parseInt(y),parseInt(m)-1,1); const now=new Date(); return (now.getFullYear()*12+now.getMonth())-(d.getFullYear()*12+d.getMonth()) > 1; })() : false;
 
-  // Biggest expense
   const topExpCat = snap ? Object.entries(snap.expenses||{}).sort((a,b)=>b[1]-a[1])[0] : null;
 
-  // Net worth trend (last 6)
   const trendData = snapKeys.slice(-6).map(k => {
     const s = snapshots[k];
     const c = (sources?.cash||[]).reduce((sum,ac)=>sum+(s.cash?.[ac.id]||0),0);
@@ -537,7 +531,6 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
     return { label: `${MONTHS[parseInt(m)-1]}`, value: c+iv+cp };
   });
 
-  // Empty state
   if (snapKeys.length === 0) {
     return (
       <div>
@@ -547,7 +540,7 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
             <div style={{ fontSize:48, marginBottom:16 }}>🌱</div>
             <div style={{ fontFamily:"'DM Serif Display',serif", fontSize:22, marginBottom:10 }}>Welcome to Vault</div>
             <div style={{ fontSize:14, color:"#888", marginBottom:28, lineHeight:1.6 }}>Own your finances now. Complete your first monthly check-in to see your net worth, spending trends, and home goal progress.</div>
-            <button className="btn-primary" onClick={()=>setPage("checkin")} style={{ width:"100%" }}>Start First Check-in →</button>
+            <button className="btn-primary" onClick={()=>setPage("checkin")} className="w-full">Start First Check-in →</button>
           </div>
         </div>
       </div>
@@ -567,15 +560,17 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
       <DynamicSubtext nwDelta={nwDelta} savingsRate={savingsRate} expTotal={expTotal} income={income} snapshots={snapshots} />
 
       {/* Top stats — 3 cards */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:24 }} className="stat-grid">
-        <StatCard
-          label="Net Worth"
-          value={fmtSGD(netWorth)} isAmount={true}
-          sub={snapKeys.length>0?`as of ${lastUpdatedLabel}`:"no data yet"}
-          delta={nwDelta}
-        />
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:24, animation:"fadeInUp 0.4s ease" }} className="stat-grid">
+        <NetWorthCard netWorth={netWorth} lastUpdatedLabel={lastUpdatedLabel} snapKeys={snapKeys} nwDelta={nwDelta} />
         <StatCard label="Total Expenses" value={expTotal?fmtSGD(expTotal):"–"} sub="this month" isAmount={true} delta={expDelta} deltaInvert={true} />
-        <StatCard label="Savings Rate" value={savingsRate!==null?fmtPct(savingsRate):"–"} sub="this month" color={savingsRate>30?"#2d6a4f":savingsRate>15?"#d97706":"#c0392b"} />
+        <StatCard label="Savings Rate" value={savingsRate!==null?fmtPct(savingsRate):"–"} sub="this month"
+          color={savingsRate>30?"#2d6a4f":savingsRate>15?"#d97706":"#c0392b"}
+          bgColor={savingsRate!==null ? (
+            savingsRate>30 ? {bg:"#f0f7f4", border:"#b7e4c7", label:"#52b788"} :
+            savingsRate>15 ? {bg:"#fffbeb", border:"#fde68a", label:"#d97706"} :
+            {bg:"#fff5f5", border:"#fecaca", label:"#e05252"}
+          ) : null}
+        />
       </div>
 
       {/* Biggest expense callout */}
@@ -620,11 +615,50 @@ function Dashboard({ profile, sources, snapshots, currentLogged, latestSnap, set
   );
 }
 
-function StatCard({ label, value, sub, accent, color, delta, deltaInvert, isAmount }) {
-  const masked = useMask();
+function useCountUp(target, duration=1000) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!target || isNaN(target)) return;
+    const start = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.round(target * ease));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target]);
+  return count;
+}
+
+function NetWorthCard({ netWorth, lastUpdatedLabel, snapKeys, nwDelta }) {
+  const counted = useCountUp(netWorth, 1200);
   return (
-    <div className="stat-card" style={accent?{background:"#f0f7f4",borderColor:"#b7e4c7"}:{}}>
-      <div className="stat-lbl">{label}</div>
+    <div className="stat-card animate-in" style={{ background:"linear-gradient(135deg,#f0f7f4 0%,#e8f5ee 100%)", borderColor:"#b7e4c7", position:"relative", overflow:"hidden" }}>
+      <div style={{ position:"absolute", top:-20, right:-20, width:80, height:80, borderRadius:"50%", background:"rgba(45,106,79,0.06)" }} />
+      <div className="stat-lbl">Net Worth</div>
+      <div style={{ display:"flex", alignItems:"baseline", gap:8, flexWrap:"wrap" }}>
+        <div className="stat-val" style={{ color:"#2d6a4f" }}>{fmtSGD(counted)}</div>
+        {nwDelta !== null && nwDelta !== undefined && (
+          <span style={{ fontSize:12, fontWeight:500, color: nwDelta>=0?"#2d6a4f":"#c0392b" }}>
+            {nwDelta>=0?"▲":"▼"} {fmtSGD(Math.abs(nwDelta))}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize:12, color:"#52b788", marginTop:4, opacity:0.8 }}>{snapKeys.length>0?`as of ${lastUpdatedLabel}`:"no data yet"}</div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, accent, color, delta, deltaInvert, isAmount, bgColor }) {
+  const masked = useMask();
+  let cardStyle = {};
+  if (bgColor) cardStyle = { background: bgColor.bg, borderColor: bgColor.border };
+  else if (accent) cardStyle = { background:"#f0f7f4", borderColor:"#b7e4c7" };
+  return (
+    <div className="stat-card animate-in" style={cardStyle}>
+      <div className="stat-lbl" style={bgColor?{color:bgColor.label}:{}}>{label}</div>
       <div style={{ display:"flex", alignItems:"baseline", gap:8, flexWrap:"wrap" }}>
         <div className="stat-val" style={color?{color}:{}}>{masked && isAmount!==false ? <span style={{ letterSpacing:"0.1em", color:"#bbb" }}>••••••</span> : value}</div>
         {!masked && delta !== null && delta !== undefined && (
@@ -633,7 +667,7 @@ function StatCard({ label, value, sub, accent, color, delta, deltaInvert, isAmou
           </span>
         )}
       </div>
-      <div style={{ fontSize:12, color:"#bbb", marginTop:4 }}>{sub}</div>
+      <div style={{ fontSize:12, color: bgColor?bgColor.label:"#bbb", marginTop:4, opacity:0.7 }}>{sub}</div>
     </div>
   );
 }
@@ -644,7 +678,7 @@ function MiniBar({ label, value, total, color }) {
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:5 }}>
         <span style={{ color:"#555" }}>{label}</span>
-        <span style={{ fontWeight:500 }}><M val={value} /></span>
+        <span className="font-500"><M val={value} /></span>
       </div>
       <div className="progress-bar">
         <div className="progress-fill" style={{ width:`${pct}%`, background:color }} />
@@ -676,7 +710,7 @@ function HomeGoalPreview({ profile, deployable, income, expTotal, setPage }) {
   return (
     <div className="card">
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:mode==="hdb"?12:20, flexWrap:"wrap", gap:8 }}>
-        <div style={{ fontWeight:600 }}>Home Goal</div>
+        <div className="font-600">Home Goal</div>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div className="toggle-pill">
             <button className={`toggle-opt${mode==="hdb"?" active":""}`} onClick={()=>setMode("hdb")}>HDB</button>
@@ -714,7 +748,7 @@ function HomeGoalPreview({ profile, deployable, income, expTotal, setPage }) {
           )}
         </div>
       </div>
-      <div style={{ marginBottom:12 }}>
+      <div className="mb-12">
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#aaa", marginBottom:6 }}>
           <span>Down payment progress</span><span>{pct.toFixed(0)}%</span>
         </div>
@@ -749,9 +783,6 @@ function greeting() {
   return "evening";
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// CHECK-IN
-// ════════════════════════════════════════════════════════════════════════════
 function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPage }) {
   const [step, setStep] = useState(0);
   const key = nowKey();
@@ -819,7 +850,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
           </div>
         ))}
       </div>
-      <div className="step-mobile" style={{ marginBottom:20 }}>
+      <div className="step-mobile" className="mb-20">
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
           <span style={{ fontSize:14, fontWeight:600 }}>{steps[step]}</span>
           <span style={{ fontSize:13, color:"#aaa" }}>Step {step+1} of {steps.length}</span>
@@ -871,7 +902,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
               </div>
             ))}
             <div style={{ display:"flex", gap:8, marginTop:8, marginBottom:24 }}>
-              <input className="input-field" placeholder="+ Add account (e.g. OCBC 360)" value={newCashLabel} onChange={e=>setNewCashLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCashAccount()} style={{ flex:1 }} />
+              <input className="input-field" placeholder="+ Add account (e.g. OCBC 360)" value={newCashLabel} onChange={e=>setNewCashLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCashAccount()} className="flex-1" />
               <button className="btn-ghost" onClick={addCashAccount}>Add</button>
             </div>
 
@@ -895,7 +926,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
               </div>
             ))}
             <div style={{ display:"flex", gap:8, marginTop:8 }}>
-              <input className="input-field" placeholder="+ Add platform (e.g. Tiger Brokers)" value={newInvLabel} onChange={e=>setNewInvLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addInvAccount()} style={{ flex:1 }} />
+              <input className="input-field" placeholder="+ Add platform (e.g. Tiger Brokers)" value={newInvLabel} onChange={e=>setNewInvLabel(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addInvAccount()} className="flex-1" />
               <button className="btn-ghost" onClick={addInvAccount}>Add</button>
             </div>
           </div>
@@ -915,7 +946,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
             <div className="divider" />
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:14 }}>
               <span style={{ color:"#888" }}>Total expenses</span>
-              <span style={{ fontWeight:600 }}><M val={totalExp} /></span>
+              <span className="font-600"><M val={totalExp} /></span>
             </div>
           </div>
         )}
@@ -923,7 +954,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
         {step === 2 && (
           <div>
             <SectionTitle>Income This Month</SectionTitle>
-            <div style={{ marginBottom:8 }}>
+            <div className="mb-8">
               <label className="label">Gross Monthly Income</label>
               <input className="input-field" type="number" placeholder="0" value={data.income||""} onChange={e=>setData(d=>({...d,income:Number(e.target.value)||0}))} />
             </div>
@@ -945,7 +976,7 @@ function CheckIn({ profile, sources, snapshots, saveSnapshot, saveSources, setPa
             <div style={{ background:"#f8f7f4", borderRadius:10, padding:"12px 16px", fontSize:13, color:"#888", marginBottom:20 }}>
               This snapshot will be saved permanently and used in your trend charts.
             </div>
-            <button className="btn-primary" style={{ width:"100%" }} onClick={handleSave}>
+            <button className="btn-primary" className="w-full" onClick={handleSave}>
               Save {nowLabel()} Snapshot ✓
             </button>
           </div>
@@ -976,9 +1007,6 @@ function ReviewRow({ label, value, color }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// ASSETS
-// ════════════════════════════════════════════════════════════════════════════
 function Assets({ sources, latestSnap, setPage }) {
   return (
     <div>
@@ -1027,8 +1055,8 @@ function Assets({ sources, latestSnap, setPage }) {
             if (grandTotal === 0) return null;
             return (
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px", background:"#f8f7f4", borderRadius:8, marginTop:12 }}>
-                <span style={{ fontSize:13, color:"#888" }}>Total investments incl. CPFIS</span>
-                <span style={{ fontWeight:700 }}><M val={grandTotal} /></span>
+                <span className="text-sm text-muted">Total investments incl. CPFIS</span>
+                <span className="font-700"><M val={grandTotal} /></span>
               </div>
             );
           })()}
@@ -1040,10 +1068,10 @@ function Assets({ sources, latestSnap, setPage }) {
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
             <div>
               <div style={{ fontSize:14, fontWeight:500 }}>Ordinary Account</div>
-              <div style={{ fontSize:12, color:"#aaa" }}>Uninvested, deployable for housing</div>
+              <div className="text-xs text-faint">Uninvested, deployable for housing</div>
             </div>
             <div style={{ textAlign:"right" }}>
-              <div style={{ fontWeight:600 }}><M val={latestSnap?.cpf?.oaCash||latestSnap?.cpf?.oa||0} /></div>
+              <div className="font-600"><M val={latestSnap?.cpf?.oaCash||latestSnap?.cpf?.oa||0} /></div>
               <span className="tag tag-green" style={{ fontSize:11 }}>Deployable</span>
             </div>
           </div>
@@ -1057,11 +1085,11 @@ function Assets({ sources, latestSnap, setPage }) {
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                   <div>
                     <div style={{ fontSize:14, fontWeight:500 }}>CPFIS (Invested OA)</div>
-                    <div style={{ fontSize:12, color:"#aaa" }}>Stocks/ETFs via CPFIS-OA · Cost: <M val={invested} /></div>
+                    <div className="text-xs text-faint">Stocks/ETFs via CPFIS-OA · Cost: <M val={invested} /></div>
                     {invested > 0 && <div style={{ fontSize:12, color: gain>=0?"#2d6a4f":"#c0392b", marginTop:2 }}>{gain>=0?"▲":"▼"} <M val={Math.abs(gain)} /> unrealised</div>}
                   </div>
                   <div style={{ textAlign:"right" }}>
-                    <div style={{ fontWeight:600 }}>{current > 0 ? <M val={current} /> : "–"}</div>
+                    <div className="font-600">{current > 0 ? <M val={current} /> : "–"}</div>
                     <span className="tag tag-green" style={{ fontSize:11 }}>Deployable</span>
                   </div>
                 </div>
@@ -1073,10 +1101,10 @@ function Assets({ sources, latestSnap, setPage }) {
             <div key={f} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
               <div>
                 <div style={{ fontSize:14, fontWeight:500 }}>{l}</div>
-                <div style={{ fontSize:12, color:"#aaa" }}>{sub}</div>
+                <div className="text-xs text-faint">{sub}</div>
               </div>
               <div style={{ textAlign:"right" }}>
-                <div style={{ fontWeight:600 }}><M val={latestSnap?.cpf?.[f]||0} /></div>
+                <div className="font-600"><M val={latestSnap?.cpf?.[f]||0} /></div>
                 <span className="tag tag-amber" style={{ fontSize:11 }}>Locked</span>
               </div>
             </div>
@@ -1092,9 +1120,6 @@ function Assets({ sources, latestSnap, setPage }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// EXPENSES
-// ════════════════════════════════════════════════════════════════════════════
 function Expenses({ snapshots }) {
   const keys = Object.keys(snapshots||{}).sort().reverse();
   const [selKey, setSelKey] = useState(keys[0]||"");
@@ -1103,13 +1128,11 @@ function Expenses({ snapshots }) {
   const total = Object.values(expenses).reduce((s,v)=>s+v,0);
   const income = snap?.income||0;
 
-  // Previous month snapshot for MoM delta
   const allKeysSorted = Object.keys(snapshots||{}).sort();
   const selIdx = allKeysSorted.indexOf(selKey);
   const prevKey = selIdx > 0 ? allKeysSorted[selIdx-1] : null;
   const prevExp = prevKey ? (snapshots[prevKey]?.expenses||{}) : null;
 
-  // bar data
   const barData = EXPENSE_CATS.filter(c=>expenses[c]>0).map(c=>({ name:c, amount:expenses[c] })).sort((a,b)=>b.amount-a.amount);
 
   return (
@@ -1125,7 +1148,7 @@ function Expenses({ snapshots }) {
             return <option key={k} value={k}>{MONTHS[parseInt(m)-1]} {y}</option>;
           })}
         </select>
-        {prevKey && (() => { const [y,m]=prevKey.split("-"); return <span style={{ fontSize:12, color:"#aaa" }}>vs {MONTHS[parseInt(m)-1]} {y}</span>; })()}
+        {prevKey && (() => { const [y,m]=prevKey.split("-"); return <span className="text-xs text-faint">vs {MONTHS[parseInt(m)-1]} {y}</span>; })()}
       </div>
 
       {snap ? (
@@ -1138,7 +1161,7 @@ function Expenses({ snapshots }) {
               const prev = prevExp ? (prevExp[cat]||0) : null;
               const delta = prev !== null ? val - prev : null;
               return (
-                <div key={cat} style={{ marginBottom:12 }}>
+                <div key={cat} className="mb-12">
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:13, marginBottom:4 }}>
                     <span style={{ color:"#555" }}>{cat}</span>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -1147,7 +1170,7 @@ function Expenses({ snapshots }) {
                           {delta>0?"▲":delta<0?"▼":"–"}{delta!==0?<M val={Math.abs(delta)} />:""}
                         </span>
                       )}
-                      <span style={{ fontWeight:500 }}>{val>0?<M val={val} />:"–"}</span>
+                      <span className="font-500">{val>0?<M val={val} />:"–"}</span>
                     </div>
                   </div>
                   {val>0 && <div className="progress-bar"><div className="progress-fill" style={{ width:`${pct}%`, background:"#52b788" }} /></div>}
@@ -1159,7 +1182,7 @@ function Expenses({ snapshots }) {
               <span style={{ color:"#888" }}>Total</span>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 {prevExp && (() => { const pt=Object.values(prevExp).reduce((s,v)=>s+v,0); const d=total-pt; return d!==0?<span style={{ fontSize:12, color:d>0?"#c0392b":"#2d6a4f" }}>{d>0?"▲":"▼"}<M val={Math.abs(d)} /></span>:null; })()}
-                <span style={{ fontWeight:700 }}><M val={total} /></span>
+                <span className="font-700"><M val={total} /></span>
               </div>
             </div>
             {income>0 && <div style={{ fontSize:13, color:"#aaa", marginTop:6 }}>
@@ -1179,9 +1202,71 @@ function Expenses({ snapshots }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// HOME GOAL
-// ════════════════════════════════════════════════════════════════════════════
+function AffordabilityTips({ tdsrPct, msrPct, showMSR, income, instalment, debtPayments, price, rate, tenure, dpPct }) {
+  // TDSR: max instalment = income*0.55 - debts
+  const maxInstalment = income * 0.55 - debtPayments;
+  const minIncomeForTDSR = income > 0 ? Math.ceil((instalment + debtPayments) / 0.55) : 0;
+  // Max affordable price at current income for TDSR
+  const maxLoanTDSR = maxInstalment > 0 ? (() => {
+    const r = rate/100/12, n = tenure*12;
+    return r===0 ? maxInstalment*n : maxInstalment*(Math.pow(1+r,n)-1)/(r*Math.pow(1+r,n));
+  })() : 0;
+  const maxPriceTDSR = Math.floor(maxLoanTDSR / (1-dpPct) / 1000) * 1000;
+
+  // MSR: max instalment = income*0.30
+  const maxInstalmentMSR = income * 0.30;
+  const minIncomeForMSR = income > 0 ? Math.ceil(instalment / 0.30) : 0;
+  const maxLoanMSR = maxInstalmentMSR > 0 ? (() => {
+    const r = rate/100/12, n = tenure*12;
+    return r===0 ? maxInstalmentMSR*n : maxInstalmentMSR*(Math.pow(1+r,n)-1)/(r*Math.pow(1+r,n));
+  })() : 0;
+  const maxPriceMSR = Math.floor(maxLoanMSR / (1-dpPct) / 1000) * 1000;
+
+  const tdsrBreached = tdsrPct !== null && tdsrPct > 55;
+  const msrBreached = msrPct !== null && showMSR && msrPct > 30;
+
+  return (
+    <div style={{ marginTop:16, background:"#fff8f8", border:"1px solid #fecaca", borderRadius:12, padding:"14px 16px" }}>
+      <div style={{ fontSize:13, fontWeight:600, color:"#c0392b", marginBottom:10 }}>
+        ⚠ How to bring your ratios into compliance
+      </div>
+      {tdsrBreached && (
+        <div style={{ marginBottom:msrBreached?12:0 }}>
+          <div style={{ fontSize:12, fontWeight:600, color:"#888", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>TDSR ({fmtPct(tdsrPct)} → need ≤55%)</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <Tip icon="💰" text={`Increase income to at least ${fmtSGD(minIncomeForTDSR)}/mo`} sub={`Currently ${fmtSGD(income)}/mo — need ${fmtSGD(minIncomeForTDSR-income)}/mo more`} />
+            <Tip icon="🏠" text={`Lower target price to ${fmtSGD(maxPriceTDSR)} or below`} sub={`Current target: ${fmtSGD(price)}`} />
+            {tenure < 30 && <Tip icon="📅" text="Extend loan tenure" sub="A longer tenure reduces monthly instalment" />}
+            <Tip icon="👥" text="Add a co-borrower" sub="Combined income increases your TDSR headroom" />
+          </div>
+        </div>
+      )}
+      {msrBreached && (
+        <div>
+          <div style={{ fontSize:12, fontWeight:600, color:"#888", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>MSR ({fmtPct(msrPct)} → need ≤30%)</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <Tip icon="💰" text={`Increase income to at least ${fmtSGD(minIncomeForMSR)}/mo`} sub={`Currently ${fmtSGD(income)}/mo — need ${fmtSGD(minIncomeForMSR-income)}/mo more`} />
+            <Tip icon="🏠" text={`Lower target price to ${fmtSGD(maxPriceMSR)} or below`} sub={`Current target: ${fmtSGD(price)}`} />
+            <Tip icon="🏦" text="Switch to a bank loan for this HDB flat" sub="MSR only applies to HDB loans — bank loans use TDSR only" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Tip({ icon, text, sub }) {
+  return (
+    <div style={{ display:"flex", gap:10, alignItems:"flex-start", background:"#fff", borderRadius:8, padding:"8px 10px", border:"1px solid #fde8e6" }}>
+      <span style={{ fontSize:16, flexShrink:0 }}>{icon}</span>
+      <div>
+        <div style={{ fontSize:13, fontWeight:500, color:"#1a1a1a" }}>{text}</div>
+        <div style={{ fontSize:11, color:"#aaa", marginTop:2 }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
+
 function HomeGoal({ profile, saveProfile, latestSnap }) {
   const [mode, setMode] = useState("hdb");
   const [hdbLoanType, setHdbLoanType] = useState("hdb");
@@ -1212,7 +1297,7 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
   const gap = Math.max(0, dpTotal-deployable);
   const pct = dpTotal>0?Math.min(100,deployable/dpTotal*100):0;
 
-  const income = Number(profile?.salary)||latestSnap?.income||0; // profile salary is source of truth for loan calcs
+  const income = latestSnap?.income||Number(profile?.salary)||0;
   const debtPayments = (profile?.debts||[]).reduce((s,d)=>s+(Number(d.monthly)||0),0);
   const maxTDSR = income*0.55 - debtPayments;
   const maxLoan = maxTDSR > 0 ? maxTDSR * tenure * 12 : 0; // simplified
@@ -1236,7 +1321,7 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
                 <button className={`toggle-opt${hdbLoanType==="hdb"?" active":""}`} onClick={()=>setHdbLoanType("hdb")} style={{ fontSize:12, padding:"5px 14px" }}>HDB Loan</button>
                 <button className={`toggle-opt${hdbLoanType==="bank"?" active":""}`} onClick={()=>setHdbLoanType("bank")} style={{ fontSize:12, padding:"5px 14px" }}>Bank Loan</button>
               </div>
-              <span style={{ fontSize:12, color:"#aaa" }}>
+              <span className="text-xs text-faint">
                 {hdbLoanType==="hdb" ? "2.6% · MSR" : "Market rate · No MSR"}
               </span>
             </div>
@@ -1267,31 +1352,31 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
         {/* Down payment */}
         <div className="card">
           <div style={{ fontWeight:600, marginBottom:16 }}>Down Payment Breakdown</div>
-          <div style={{ marginBottom:16 }}>
+          <div className="mb-16">
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:6 }}>
               <span style={{ color:"#888" }}>Total required ({(dpPct*100).toFixed(0)}%)</span>
-              <span style={{ fontWeight:600 }}><M val={dpTotal} /></span>
+              <span className="font-600"><M val={dpTotal} /></span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:6 }}>
               <span style={{ color:"#888" }}>Min. hard cash ({(minCashPct*100).toFixed(0)}%)</span>
-              <span style={{ fontWeight:500 }}><M val={cashDp} /></span>
+              <span className="font-500"><M val={cashDp} /></span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:16 }}>
               <span style={{ color:"#888" }}>Can use CPF OA</span>
-              <span style={{ fontWeight:500 }}><M val={cpfDp} /></span>
+              <span className="font-500"><M val={cpfDp} /></span>
             </div>
             <div className="divider" style={{ margin:"10px 0" }} />
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
               <span style={{ color:"#888" }}>Cash</span>
-              <span style={{ fontWeight:500 }}><M val={cashLiquid} /></span>
+              <span className="font-500"><M val={cashLiquid} /></span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
               <span style={{ color:"#888" }}>CPF OA</span>
-              <span style={{ fontWeight:500 }}><M val={cpfOA} /></span>
+              <span className="font-500"><M val={cpfOA} /></span>
             </div>
             {cpfCpfis > 0 && <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:4 }}>
               <span style={{ color:"#888" }}>CPFIS (current value)</span>
-              <span style={{ fontWeight:500 }}><M val={cpfCpfis} /></span>
+              <span className="font-500"><M val={cpfCpfis} /></span>
             </div>}
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:6, paddingTop:6, borderTop:"1px solid #f0ede6" }}>
               <span style={{ color:"#888", fontWeight:500 }}>Total deployable</span>
@@ -1302,7 +1387,7 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
               <span style={{ fontWeight:700, color:gap===0?"#2d6a4f":"#c0392b" }}>{gap===0?"✓ Ready!":<M val={gap} />}</span>
             </div>
           </div>
-          <div style={{ marginBottom:8 }}>
+          <div className="mb-8">
             <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:"#aaa", marginBottom:6 }}>
               <span>Progress to down payment</span><span>{pct.toFixed(0)}%</span>
             </div>
@@ -1317,26 +1402,33 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
           <div style={{ fontWeight:600, marginBottom:16 }}>Loan & Monthly Cost</div>
           <div style={{ display:"grid", gap:10 }}>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
-              <span style={{ fontSize:13, color:"#888" }}>Loan amount</span>
-              <span style={{ fontWeight:600 }}><M val={loanAmt} /></span>
+              <span className="text-sm text-muted">Loan amount</span>
+              <span className="font-600"><M val={loanAmt} /></span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
-              <span style={{ fontSize:13, color:"#888" }}>Monthly instalment</span>
-              <span style={{ fontWeight:600 }}><M val={instalment} /></span>
+              <span className="text-sm text-muted">Monthly instalment</span>
+              <span className="font-600"><M val={instalment} /></span>
             </div>
             {msrPct !== null && showMSR && (
               <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderBottom:"1px solid #f4f0e8" }}>
-                <span style={{ fontSize:13, color:"#888" }}>MSR (max 30%)</span>
-                <span style={{ fontWeight:600 }}><span className={`tag ${msrPct<=30?"tag-green":"tag-red"}`}>{fmtPct(msrPct)}</span></span>
+                <span className="text-sm text-muted">MSR (max 30%)</span>
+                <span className="font-600"><span className={`tag ${msrPct<=30?"tag-green":"tag-red"}`}>{fmtPct(msrPct)}</span></span>
               </div>
             )}
             {tdsrPct !== null && (
               <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0" }}>
-                <span style={{ fontSize:13, color:"#888" }}>TDSR (max 55%)</span>
-                <span style={{ fontWeight:600 }}><span className={`tag ${tdsrPct<=55?"tag-green":"tag-red"}`}>{fmtPct(tdsrPct)}</span></span>
+                <span className="text-sm text-muted">TDSR (max 55%)</span>
+                <span className="font-600"><span className={`tag ${tdsrPct<=55?"tag-green":"tag-red"}`}>{fmtPct(tdsrPct)}</span></span>
               </div>
             )}
           </div>
+          {((tdsrPct !== null && tdsrPct > 55) || (msrPct !== null && showMSR && msrPct > 30)) && (
+            <AffordabilityTips
+              tdsrPct={tdsrPct} msrPct={msrPct} showMSR={showMSR}
+              income={income} instalment={instalment} debtPayments={debtPayments}
+              price={price} rate={rate} tenure={tenure} dpPct={dpPct}
+            />
+          )}
         </div>
 
         {/* Timeline */}
@@ -1371,7 +1463,6 @@ function HomeGoal({ profile, saveProfile, latestSnap }) {
 }
 
 function CPFProjection({ salary, currentOA }) {
-  // OA growth: 37% total CPF (20% employee + 17% employer) × 62% OA allocation = ~23% of salary
   const monthlyOAContrib = Math.round(salary * 0.23); // ~23% of gross to OA (employee + employer combined)
   const monthlyCPFEmployee = Math.round(salary * 0.20); // 20% employee contribution shown in label
   const proj6 = currentOA + monthlyOAContrib * 6;
@@ -1409,14 +1500,14 @@ function TimelineEstimate({ gap, income, expenses, salary }) {
       <div style={{ background:"#f8f7f4", borderRadius:10, padding:"12px 14px", marginBottom:16 }}>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:6 }}>
           <span style={{ color:"#888" }}>Cash savings</span>
-          <span style={{ fontWeight:500 }}><M val={cashSavings} />/mo</span>
+          <span className="font-500"><M val={cashSavings} />/mo</span>
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:8 }}>
           <span style={{ color:"#888" }}>CPF OA auto-growth</span>
-          <span style={{ fontWeight:500 }}><M val={monthlyOA} />/mo</span>
+          <span className="font-500"><M val={monthlyOA} />/mo</span>
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, paddingTop:8, borderTop:"1px solid #ede9e0" }}>
-          <span style={{ fontWeight:600 }}>Total monthly progress</span>
+          <span className="font-600">Total monthly progress</span>
           <span style={{ fontWeight:700, color:"#2d6a4f" }}><M val={totalMonthlyProgress} />/mo</span>
         </div>
       </div>
@@ -1441,9 +1532,6 @@ function TimelineEstimate({ gap, income, expenses, salary }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// MASKED CHART COMPONENTS
-// ════════════════════════════════════════════════════════════════════════════
 function DashNetWorthChart({ data }) {
   const { amt, amtTip } = useChartFmt();
   return (
@@ -1474,9 +1562,6 @@ function ExpensesBarChart({ data }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// TRENDS
-// ════════════════════════════════════════════════════════════════════════════
 function Trends({ snapshots }) {
   const { amt, amtTip } = useChartFmt();
   const keys = Object.keys(snapshots||{}).sort();
@@ -1493,7 +1578,6 @@ function Trends({ snapshots }) {
     </div>
   );
 
-  // Build chart data
   const chartData = keys.map(k => {
     const s = snapshots[k];
     const [y,m] = k.split("-");
@@ -1600,16 +1684,12 @@ function Trends({ snapshots }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// SETTINGS
-// ════════════════════════════════════════════════════════════════════════════
 function Settings({ profile, saveProfile, sources, saveSources, setPage }) {
   const [name, setName] = useState(profile?.name||"");
-  const [salary, setSalary] = useState(profile?.salary||"");
   const [saved, setSaved] = useState(false);
 
   async function handleSave() {
-    await saveProfile({ ...profile, name: name.trim(), salary: Number(salary)||0, debts: [] });
+    await saveProfile({ ...profile, name: name.trim(), debts: [] });
     setSaved(true);
     setTimeout(()=>setSaved(false), 2000);
   }
@@ -1629,9 +1709,7 @@ function Settings({ profile, saveProfile, sources, saveSources, setPage }) {
           <div style={{ fontWeight:600, marginBottom:16 }}>Profile</div>
           <label className="label">Your Name</label>
           <input className="input-field" type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Adriel" style={{ marginBottom:14 }} />
-          <label className="label">Gross Monthly Salary (S$)</label>
-          <input className="input-field" type="number" value={salary} onChange={e=>setSalary(e.target.value)} placeholder="e.g. 5000" />
-          <div style={{ fontSize:12, color:"#aaa", marginTop:8 }}>Used to calculate TDSR, MSR and savings rate.</div>
+
         </div>
       </div>
 
